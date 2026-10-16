@@ -122,11 +122,24 @@ function LooksCard() {
     savePrefs({ ...current, [kind]: map })
   }
 
+  const anyChanged = Object.keys(prefs.statusLooks).length + Object.keys(prefs.priorityLooks).length > 0
+
   return (
     <section className="card looks-card">
-      <div className="stack">
-        <span>Colors and icons</span>
-        <span className="muted small">Only for you. Anything you leave alone uses the workspace default.</span>
+      <div className="row gap-xs">
+        <span className="stack min-w-0 grow">
+          <span>Colors and icons</span>
+          <span className="muted small">Only for you. Anything you leave alone uses the workspace default.</span>
+        </span>
+        <button
+          type="button"
+          className="btn btn-sm"
+          disabled={!anyChanged}
+          onClick={() => savePrefs({ ...readPrefs(), statusLooks: {}, priorityLooks: {} })}
+          title="Every status and priority back to the workspace default"
+        >
+          Reset all
+        </button>
       </div>
       <LookGroup title="Statuses">
         {statuses.map((s) => (

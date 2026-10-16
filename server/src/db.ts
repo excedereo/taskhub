@@ -190,8 +190,8 @@ const migrations: string[] = [
   );
   INSERT INTO statuses (id, name, color, icon, type, position, created_at) VALUES
     (1, 'Open', '#a1a1aa', 'circle-dashed', 'todo', 1, unixepoch() * 1000),
-    (2, 'In progress', '#d97706', 'loader', 'active', 2, unixepoch() * 1000),
-    (3, 'In review', '#7c3aed', 'eye', 'active', 3, unixepoch() * 1000),
+    (2, 'In progress', '#ea580c', 'loader', 'active', 2, unixepoch() * 1000),
+    (3, 'In review', '#6e56cf', 'eye', 'active', 3, unixepoch() * 1000),
     (4, 'Done', '#16a34a', 'circle-check', 'done', 4, unixepoch() * 1000);
   ALTER TABLE tasks ADD COLUMN status_id INTEGER REFERENCES statuses(id);
   UPDATE tasks SET status_id = CASE status WHEN 'open' THEN 1 WHEN 'in_progress' THEN 2 WHEN 'review' THEN 3 ELSE 4 END;
