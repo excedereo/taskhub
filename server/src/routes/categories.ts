@@ -13,6 +13,7 @@ type CategoryRow = {
   created_by: number | null
   created_at: number
   open_count: number
+  done_top_count: number
   total_count: number
 }
 
@@ -24,12 +25,14 @@ const serializeCategory = (c: CategoryRow) => ({
   createdBy: c.created_by,
   createdAt: c.created_at,
   openCount: c.open_count,
+  doneCount: c.done_top_count,
   totalCount: c.total_count,
 })
 
 const CATEGORY_SELECT = `
   SELECT c.*,
-    (SELECT COUNT(*) FROM tasks t WHERE t.category_id = c.id AND t.status != 'done') AS open_count,
+    (SELECT COUNT(*) FROM tasks t WHERE t.category_id = c.id AND t.status != 'done' AND t.archived_at IS NULL) AS open_count,
+    (SELECT COUNT(*) FROM tasks t WHERE t.category_id = c.id AND t.status = 'done' AND t.archived_at IS NULL AND t.parent_id IS NULL) AS done_top_count,
     (SELECT COUNT(*) FROM tasks t WHERE t.category_id = c.id) AS total_count
   FROM categories c`
 
@@ -156,6 +159,23 @@ categoriesRouter.put('/categories/:id/layout', (req, res) => {
   })
 
   res.json(listSections(category.id))
+})
+
+// Clears finished work out of a plan in one go; subtasks follow their parents.
+categoriesRouter.post('/categories/:id/archive-done', (req, res) => {
+  const actor = me(req)
+  if (!can(req, 'manage_categories') && !can(req, 'edit_tasks')) throw forbidden()
+  const category = getCategory(idParam(req))
+  if (!category) throw notFound('Category not found')
+
+  const archived = transaction(() => {
+    const now = Date.now()
+    const ids = (db.prepare(`SELECT id FROM tasks WHERE category_id = ? AND status = 'done' AND archived_at IS NULL AND parent_id IS NULL`).all(category.id) as { id: number }[]).map((r) => r.id)
+    for (const id of ids) db.prepare('UPDATE tasks SET archived_at = ? WHERE id = ? OR (parent_id = ? AND archived_at IS NULL)').run(now, id, id)
+    if (ids.length) audit(actor.id, 'category', category.id, 'category.archived_done', { name: category.name, count: ids.length })
+    return ids.length
+  })
+  res.json({ archived })
 })
 
 categoriesRouter.delete('/categories/:id', requirePermission('manage_categories'), (req, res) => {

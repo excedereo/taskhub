@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type DragEvent } from 'react'
-import { Hash, ImagePlus, Plus, Trash2, X } from 'lucide-react'
+import { Archive, ArchiveRestore, Hash, ImagePlus, Plus, Trash2, X } from 'lucide-react'
 import { api, imageFiles, uploadImage } from '../api.ts'
 import { useData, useMe, useSession } from '../store.tsx'
 import { PRIORITIES, STATUSES, type Attachment, type AuditEvent, type Task } from '../types.ts'
@@ -140,9 +140,11 @@ export function TaskPanel({ taskId, onClose, onOpenTask, onChanged, onDeleted }:
       await request()
       reloadCategories()
       await refresh()
+      return true
     } catch (err) {
       toast.error(err)
       load()
+      return false
     }
   }
 
@@ -150,7 +152,9 @@ export function TaskPanel({ taskId, onClose, onOpenTask, onChanged, onDeleted }:
   const assign = (userId: number | null) => mutate(() => api.post(`/tasks/${task.id}/assign`, { userId }))
   const take = () => mutate(() => api.post(`/tasks/${task.id}/take`))
   const removeImage = (item: GalleryItem) => mutate(() => api.del(`/attachments/${item.key.slice(1)}`))
-  const toggleSubtask = (s: Task) => mutate(() => api.patch(`/tasks/${s.id}`, { status: s.status === 'done' ? 'open' : 'done' }))
+  const setArchived = (archived: boolean) =>
+    mutate(() => api.post(`/tasks/${task.id}/archive`, { archived })).then((ok) => ok && toast.info(archived ? 'Task archived' : 'Task restored'))
+  const toggleSubtask =(s: Task) => mutate(() => api.patch(`/tasks/${s.id}`, { status: s.status === 'done' ? 'open' : 'done' }))
   const addSubtask = () => {
     const value = newSubtask.trim()
     if (!value) return
@@ -229,6 +233,11 @@ export function TaskPanel({ taskId, onClose, onOpenTask, onChanged, onDeleted }:
             )}
           </span>
           <div className="row gap-xs">
+            {canEdit && !task.archivedAt && (
+              <button className="btn btn-sm btn-ghost" onClick={() => setArchived(true)} title="Hide from lists and analytics. You can restore it later.">
+                <Archive size={14} /> Archive
+              </button>
+            )}
             {can('delete_tasks') && (
               <ConfirmButton className="btn-sm" confirmText={task.subtaskCount ? `Delete with ${task.subtaskCount} subtask(s)?` : 'Delete task?'} onConfirm={remove}>
                 <Trash2 size={14} /> Delete
@@ -241,6 +250,17 @@ export function TaskPanel({ taskId, onClose, onOpenTask, onChanged, onDeleted }:
         </div>
 
         <div className="panel-body">
+          {task.archivedAt && (
+            <div className="notice archived-notice">
+              <Archive size={14} />
+              <span className="grow">Archived {timeAgo(task.archivedAt)}. It is hidden from task lists and analytics.</span>
+              {canEdit && (
+                <button className="btn btn-sm" onClick={() => setArchived(false)}>
+                  <ArchiveRestore size={14} /> Restore
+                </button>
+              )}
+            </div>
+          )}
           {canEdit ? (
             <AutoTextarea
               className="title-input"

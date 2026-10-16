@@ -15,6 +15,7 @@ import { categoriesRouter } from './routes/categories.ts'
 import { tasksRouter } from './routes/tasks.ts'
 import { attachmentsRouter } from './routes/attachments.ts'
 import { adminRouter } from './routes/admin.ts'
+import { analyticsRouter } from './routes/analytics.ts'
 
 // Many cheap VPS hosts ship broken IPv6; prefer IPv4 when talking to Discord.
 dns.setDefaultResultOrder('ipv4first')
@@ -52,6 +53,7 @@ api.use(categoriesRouter)
 api.use(tasksRouter)
 api.use(attachmentsRouter)
 api.use(adminRouter)
+api.use(analyticsRouter)
 
 app.use('/api', api)
 app.use('/api', (_req, _res, next) => next(new HttpError(404, 'Unknown endpoint')))

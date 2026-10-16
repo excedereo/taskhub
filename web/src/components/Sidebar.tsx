@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { Hash, Inbox, Layers, LogOut, PanelLeftClose, PanelLeftOpen, Plus, ScrollText, Settings, Shield, Users } from 'lucide-react'
+import { Archive, ChartColumn, Hash, Inbox, Layers, LogOut, PanelLeftClose, PanelLeftOpen, Plus, ScrollText, Settings, Shield, Users } from 'lucide-react'
 import { useData, useMe, useSession } from '../store.tsx'
 import { cx, displayName } from '../util.ts'
 import { Avatar } from './ui.tsx'
@@ -46,6 +46,8 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
         <div className="nav-group">
           <NavItem to="/tasks?assignee=me" icon={<Inbox size={16} />} label="My tasks" active={onTasks && params.get('assignee') === 'me'} collapsed={collapsed} />
           <NavItem to="/tasks" icon={<Layers size={16} />} label="All tasks" active={onTasks && params.get('assignee') !== 'me'} collapsed={collapsed} />
+          <NavItem to="/analytics" icon={<ChartColumn size={16} />} label="Analytics" active={pathname === '/analytics'} collapsed={collapsed} />
+          <NavItem to="/archived" icon={<Archive size={16} />} label="Archived" active={pathname === '/archived'} collapsed={collapsed} />
         </div>
 
         <div className="nav-group">

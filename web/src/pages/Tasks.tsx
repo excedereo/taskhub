@@ -98,7 +98,7 @@ export function TasksPage() {
     (task: Task) =>
       setTasks((list) => {
         if (!list) return list
-        const fits = (!categoryId || task.categoryId === categoryId) && (assignee !== 'me' || task.assigneeId === me.id)
+        const fits = !task.archivedAt && (!categoryId || task.categoryId === categoryId) && (assignee !== 'me' || task.assigneeId === me.id)
         const without = list.filter((t) => t.id !== task.id)
         return fits ? [task, ...without].sort((a, b) => GROUP_ORDER.indexOf(a.status) - GROUP_ORDER.indexOf(b.status) || b.updatedAt - a.updatedAt) : without
       }),
@@ -285,7 +285,9 @@ export function TasksPage() {
         />
       )}
       {creating && <NewTaskModal defaultCategoryId={category && !category.archived ? category.id : undefined} onClose={() => setCreating(false)} onCreated={(t) => (upsert(t), setParam('task', String(t.id)))} />}
-      {editingCategory && category && <CategoryModal category={category} onClose={() => setEditingCategory(false)} />}
+      {editingCategory && category && (
+        <CategoryModal category={category} onClose={() => setEditingCategory(false)} onArchivedDone={() => loadTasks().then(setTasks).catch(toast.error)} />
+      )}
     </div>
   )
 }

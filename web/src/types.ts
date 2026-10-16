@@ -53,6 +53,8 @@ export type Category = {
   createdBy: number | null
   createdAt: number
   openCount: number
+  /** Finished top-level tasks that are not archived yet. */
+  doneCount: number
   totalCount: number
 }
 
@@ -69,6 +71,7 @@ export type Task = {
   updatedAt: number
   closedAt: number | null
   attachmentCount: number
+  archivedAt: number | null
   parentId: number | null
   position: number
   subtaskCount: number

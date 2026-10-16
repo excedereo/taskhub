@@ -24,6 +24,7 @@ export type TaskRow = {
   created_at: number
   updated_at: number
   closed_at: number | null
+  archived_at: number | null
   attachment_count: number
   subtask_count: number
   subtask_done: number
@@ -33,8 +34,8 @@ export type TaskRow = {
 const TASK_SELECT = `
   SELECT tasks.*,
     (SELECT COUNT(*) FROM attachments a WHERE a.task_id = tasks.id) AS attachment_count,
-    (SELECT COUNT(*) FROM tasks c WHERE c.parent_id = tasks.id) AS subtask_count,
-    (SELECT COUNT(*) FROM tasks c WHERE c.parent_id = tasks.id AND c.status = 'done') AS subtask_done
+    (SELECT COUNT(*) FROM tasks c WHERE c.parent_id = tasks.id AND c.archived_at IS NULL) AS subtask_count,
+    (SELECT COUNT(*) FROM tasks c WHERE c.parent_id = tasks.id AND c.archived_at IS NULL AND c.status = 'done') AS subtask_done
   FROM tasks`
 
 export const serializeTask = (t: TaskRow) => ({
@@ -51,6 +52,7 @@ export const serializeTask = (t: TaskRow) => ({
   createdAt: t.created_at,
   updatedAt: t.updated_at,
   closedAt: t.closed_at,
+  archivedAt: t.archived_at,
   attachmentCount: t.attachment_count,
   subtaskCount: t.subtask_count,
   subtaskDone: t.subtask_done,
@@ -121,7 +123,9 @@ function applyChanges(actorId: number, task: TaskRow, next: Editable, action = '
 tasksRouter.get('/tasks', (req, res) => {
   const where: string[] = []
   const params: SQLInputValue[] = []
-  const { categoryId, assignee, status, q } = req.query
+  const { categoryId, assignee, status, q, archived } = req.query
+  const showArchived = archived === '1'
+  where.push(showArchived ? 'tasks.archived_at IS NOT NULL' : 'tasks.archived_at IS NULL')
 
   if (typeof categoryId === 'string' && categoryId) {
     where.push('tasks.category_id = ?')
@@ -155,6 +159,7 @@ tasksRouter.get('/tasks', (req, res) => {
     ${TASK_SELECT}
     ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
     ORDER BY
+      ${showArchived ? 'tasks.archived_at DESC,' : ''}
       CASE tasks.status WHEN 'in_progress' THEN 0 WHEN 'review' THEN 1 WHEN 'open' THEN 2 ELSE 3 END,
       CASE tasks.priority WHEN 'high' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END,
       tasks.updated_at DESC
@@ -186,6 +191,7 @@ tasksRouter.post('/tasks', requirePermission('create_tasks'), (req, res) => {
     const parent = getTask(parentId)
     if (!parent) throw badRequest('Parent task does not exist')
     if (parent.parent_id) throw badRequest('Subtasks cannot have their own subtasks')
+    if (parent.archived_at) throw badRequest('Restore the parent task before adding subtasks')
     categoryId = parent.category_id
   } else {
     categoryId = optionalId(req.body?.categoryId, 'Category')
@@ -273,6 +279,27 @@ tasksRouter.post('/tasks/:id/assign', (req, res) => {
   const next: Editable = { assignee_id: userId }
   if (userId === null && task.status === 'in_progress') next.status = 'open'
   res.json(serializeTask(applyChanges(actor.id, task, next, userId === null ? 'task.unassigned' : 'task.assigned')))
+})
+
+/** Archiving takes the subtasks along; restoring brings back the ones that were archived with it. */
+tasksRouter.post('/tasks/:id/archive', (req, res) => {
+  const actor = me(req)
+  const task = requireTask(req)
+  if (!canEdit(req, task)) throw forbidden('Only the author or someone with "Edit any task" can archive this task')
+  const archive = Boolean(req.body?.archived)
+  if (archive === Boolean(task.archived_at)) return res.json(serializeTask(task))
+  if (!archive && task.parent_id && getTask(task.parent_id)?.archived_at) throw badRequest('Restore the parent task first')
+
+  transaction(() => {
+    if (archive) {
+      db.prepare('UPDATE tasks SET archived_at = ? WHERE id = ? OR (parent_id = ? AND archived_at IS NULL)').run(Date.now(), task.id, task.id)
+    } else {
+      db.prepare('UPDATE tasks SET archived_at = NULL WHERE parent_id = ? AND archived_at = ?').run(task.id, task.archived_at)
+      db.prepare('UPDATE tasks SET archived_at = NULL WHERE id = ?').run(task.id)
+    }
+    audit(actor.id, 'task', task.id, archive ? 'task.archived' : 'task.unarchived', { title: task.title })
+  })
+  res.json(serializeTask(getTask(task.id)!))
 })
 
 tasksRouter.delete('/tasks/:id', requirePermission('delete_tasks'), (req, res) => {

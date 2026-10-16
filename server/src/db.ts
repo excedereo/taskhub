@@ -123,6 +123,11 @@ const migrations: string[] = [
   );
   CREATE INDEX sections_category ON sections(category_id);
   `,
+  `
+  -- Archived tasks are hidden from lists, counters and analytics but kept with their history.
+  ALTER TABLE tasks ADD COLUMN archived_at INTEGER;
+  CREATE INDEX tasks_archived ON tasks(archived_at);
+  `,
 ]
 
 const current = (db.prepare('PRAGMA user_version').get() as { user_version: number }).user_version

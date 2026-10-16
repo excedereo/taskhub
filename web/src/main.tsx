@@ -7,6 +7,8 @@ import { Layout } from './components/Layout.tsx'
 import { LoginPage } from './pages/Login.tsx'
 import { TasksPage } from './pages/Tasks.tsx'
 import { UsersPage } from './pages/Users.tsx'
+import { AnalyticsPage } from './pages/Analytics.tsx'
+import { ArchivedPage } from './pages/Archived.tsx'
 import { RolesPage } from './pages/Roles.tsx'
 import { AuditPage } from './pages/Audit.tsx'
 import { SettingsPage } from './pages/Settings.tsx'
@@ -25,6 +27,8 @@ createRoot(document.getElementById('root')!).render(
                 <Route index element={<Navigate to="/tasks" replace />} />
                 <Route path="/tasks" element={<TasksPage />} />
                 <Route path="/tasks/c/:categoryId" element={<TasksPage />} />
+                <Route path="/analytics" element={<AnalyticsPage />} />
+                <Route path="/archived" element={<ArchivedPage />} />
                 <Route path="/users" element={<UsersPage />} />
                 <Route path="/roles" element={<RolesPage />} />
                 <Route path="/audit" element={<AuditPage />} />

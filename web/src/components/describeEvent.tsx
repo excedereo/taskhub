@@ -111,6 +111,12 @@ export function describeEvent(e: AuditEvent, ctx: EventContext, inTask = false):
       return <>assigned{task || ' this task'} to {user(changes.assignee_id?.[1])}</>
     case 'task.unassigned':
       return <>unassigned {user(changes.assignee_id?.[0])} from{task || ' this task'}</>
+    case 'task.archived':
+      return <>archived{task || ' this task'}</>
+    case 'task.unarchived':
+      return <>restored{task || ' this task'} from the archive</>
+    case 'category.archived_done':
+      return <>archived {String(d.count)} finished task(s) in {name}</>
     case 'task.attachment_added':
       return <>attached {name}{task && <> to{task}</>}</>
     case 'task.attachment_removed':

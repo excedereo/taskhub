@@ -7,8 +7,8 @@ import { ConfirmButton, Field, Modal } from './ui.tsx'
 import { AutoTextarea } from './AutoTextarea.tsx'
 import { useToast } from './Toast.tsx'
 
-export function CategoryModal({ category, onClose }: { category?: Category; onClose: () => void }) {
-  const { reloadCategories } = useData()
+export function CategoryModal({ category, onClose, onArchivedDone }: { category?: Category; onClose: () => void; onArchivedDone?: () => void }) {
+  const { reloadCategories, can } = useData()
   const toast = useToast()
   const navigate = useNavigate()
   const [name, setName] = useState(category?.name ?? '')
@@ -47,7 +47,16 @@ export function CategoryModal({ category, onClose }: { category?: Category; onCl
       footer={
         <>
           {category && (
-            <div className="modal-foot-left">
+            <div className="modal-foot-left row gap-xs">
+              {category.doneCount > 0 && (can('manage_categories') || can('edit_tasks')) && (
+                <ConfirmButton disabled={busy} confirmText={`Archive ${category.doneCount} done?`} onConfirm={() => run(async () => {
+                  const { archived } = await api.post<{ archived: number }>(`/categories/${category.id}/archive-done`)
+                  toast.info(`Archived ${archived} finished task(s)`)
+                  onArchivedDone?.()
+                })}>
+                  Archive done ({category.doneCount})
+                </ConfirmButton>
+              )}
               {category.totalCount === 0 ? (
                 <ConfirmButton disabled={busy} onConfirm={() => run(async () => {
                   await api.del(`/categories/${category.id}`)
@@ -57,7 +66,7 @@ export function CategoryModal({ category, onClose }: { category?: Category; onCl
                 </ConfirmButton>
               ) : (
                 <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => run(() => api.patch(`/categories/${category.id}`, { archived: !category.archived }))}>
-                  {category.archived ? 'Unarchive' : 'Archive'}
+                  {category.archived ? 'Unarchive category' : 'Archive category'}
                 </button>
               )}
             </div>
