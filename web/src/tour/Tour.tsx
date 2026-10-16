@@ -7,10 +7,12 @@ import { useData, useMe, useSession } from '../store.tsx'
 import type { Section, Task } from '../types.ts'
 import { cx } from '../util.ts'
 import { TOUR_MODULES, type TourCtx, type TourModule, type TourStep } from './modules.tsx'
+import { TourDemoContext } from './demo.tsx'
 
 export type TourState = { seen: boolean; done: string[] }
 
-type Planned = { module: TourModule; step: TourStep; last: boolean } | { module: null; step: TourStep; last: true }
+/** A step ready to show: which guide it belongs to, the page it is on, and whether it ends its guide. */
+type Planned = { module: TourModule | null; step: TourStep; path: string | null; last: boolean }
 
 type TourApi = {
   state: TourState | null
@@ -75,7 +77,7 @@ export function TourProvider({ children }: { children: ReactNode }) {
   }, [])
 
   // Which guides apply needs only permissions; the example task and category are picked when a tour starts.
-  const permCtx = useMemo<TourCtx>(() => ({ ...base, categoryId: null, taskId: null, hasSections: false, hasFinished: false, hasUnassigned: false, hasTasks: false }), [base])
+  const permCtx = useMemo<TourCtx>(() => ({ ...base, categoryId: null, taskId: null, hasSections: false, hasTasks: false }), [base])
   const available = useMemo(() => TOUR_MODULES.filter((m) => m.key === 'task' || m.key === 'categories' || m.when(permCtx)), [permCtx])
 
   const start = useCallback(
@@ -89,26 +91,25 @@ export function TourProvider({ children }: { children: ReactNode }) {
       const inCategory = tasks.filter((t) => t.categoryId === categoryId && !t.parentId)
       const example = inCategory.find((t) => !isDone(t) && t.subtaskCount > 0) ?? inCategory.find((t) => !isDone(t)) ?? inCategory[0]
       const sections = categoryId ? await api.get<Section[]>(`/categories/${categoryId}/sections`).catch(() => []) : []
-      const full: TourCtx = {
-        ...base,
-        categoryId,
-        taskId: example?.id ?? null,
-        hasSections: sections.length > 0,
-        hasFinished: inCategory.some(isDone),
-        hasUnassigned: tasks.some((t) => !t.assigneeId && !isDone(t)),
-        hasTasks: tasks.length > 0,
-      }
+      const full: TourCtx = { ...base, categoryId, taskId: example?.id ?? null, hasSections: sections.length > 0, hasTasks: tasks.length > 0 }
 
       const chosen = TOUR_MODULES.filter((m) => (keys ? keys.includes(m.key) : !m.admin) && m.when(full))
       const steps: Planned[] = []
+      // Every step gets a definite page: its own, or the one of the step before it.
+      let path: string | null = location.pathname + location.search
       for (const m of chosen) {
         const own = m.steps.filter((s) => !s.when || s.when(full))
-        own.forEach((step, i) => steps.push({ module: m, step, last: i === own.length - 1 }))
+        own.forEach((step, i) => {
+          const route = typeof step.route === 'function' ? step.route(full) : step.route
+          if (route) path = route
+          steps.push({ module: m, step, path, last: i === own.length - 1 })
+        })
       }
       if (!keys) {
         const adminLeft = TOUR_MODULES.filter((m) => m.admin && m.when(full))
         steps.push({
           module: null,
+          path,
           last: true,
           step: {
             title: 'That’s the basics',
@@ -119,13 +120,14 @@ export function TourProvider({ children }: { children: ReactNode }) {
         })
       }
       if (!steps.length) return false
+      forward.current = true
       setCtx(full)
       setIndex(0)
       setPlan(steps)
       save({ seen: true })
       return true
     },
-    [base, statusById, save],
+    [base, statusById, save, location.pathname, location.search],
   )
 
   const close = useCallback(() => {
@@ -151,15 +153,17 @@ export function TourProvider({ children }: { children: ReactNode }) {
   // A missing optional target: move on in the direction the person was going (never past the first step).
   const skip = useCallback(() => (forward.current || index === 0 ? next() : back()), [index, next, back])
 
-  // Go to the step's page (and open the menu on phones when the step points into it).
+  // Go to the step's page, and open the menu on phones when the step points into it.
+  const path = current?.path ?? null
+  const sidebar = Boolean(current?.step.sidebar)
   useEffect(() => {
-    if (!current || !ctx) return
-    const route = typeof current.step.route === 'function' ? current.step.route(ctx) : current.step.route
-    if (route && location.pathname + location.search !== route) navigate(route)
+    if (!plan) return
+    if (path && location.pathname + location.search !== path) navigate(path)
     // After the navigation settles, since a page change closes the menu by itself.
-    const t = setTimeout(() => narrow() && setMenu(Boolean(current.step.sidebar)), 60)
+    const t = setTimeout(() => narrow() && setMenu(sidebar), 60)
     return () => clearTimeout(t)
-  }, [current, ctx])
+    // Runs per step, not on every URL change: the person may wander, the tour only moves on Next and Back.
+  }, [plan, index])
 
   useEffect(() => {
     if (!plan) return
@@ -178,10 +182,9 @@ export function TourProvider({ children }: { children: ReactNode }) {
 
   return (
     <TourContext.Provider value={value}>
-      {children}
+      <TourDemoContext.Provider value={current?.step.demo ?? null}>{children}</TourDemoContext.Provider>
       {current && ctx && plan && (
         <TourOverlay
-          key={index}
           step={current.step}
           ctx={ctx}
           moduleTitle={current.module?.title ?? null}
@@ -199,13 +202,21 @@ export function TourProvider({ children }: { children: ReactNode }) {
 
 type Box = { top: number; left: number; width: number; height: number }
 
-/** Finds the step's element once it has rendered (pages load data first), and keeps following it. */
-function useTargetBox(target: string | undefined, patience: number) {
+/**
+ * Finds the step's element once its page has rendered, and keeps following it. Until the new element
+ * shows up, the previous box stays, so the highlight and the card glide from where they were.
+ */
+function useTargetBox(target: string | undefined, patience: number, stepKey: number) {
   const [box, setBox] = useState<Box | null>(null)
-  const [settled, setSettled] = useState(!target)
+  const [state, setState] = useState<'looking' | 'found' | 'missing'>('looking')
 
   useLayoutEffect(() => {
-    if (!target) return
+    if (!target) {
+      setBox(null)
+      setState('missing')
+      return
+    }
+    setState('looking')
     const selector = selectorOf(target)
     let el: Element | null = null
     let scrolled = false
@@ -221,23 +232,23 @@ function useTargetBox(target: string | undefined, patience: number) {
         }
         const n = el!.getBoundingClientRect()
         setBox((b) => (b && b.top === n.top && b.left === n.left && b.width === n.width && b.height === n.height ? b : { top: n.top, left: n.left, width: n.width, height: n.height }))
-        setSettled(true)
+        setState('found')
       } else if (Date.now() - started > patience) {
-        // Not on the page (nothing to show yet): the card falls back to the middle of the screen.
+        // Not on the page: the card moves to the middle of the screen (or the step is skipped).
         setBox(null)
-        setSettled(true)
+        setState('missing')
       }
     }
     measure()
-    const timer = setInterval(measure, 120)
+    const timer = setInterval(measure, 100)
     window.addEventListener('resize', measure)
     return () => {
       clearInterval(timer)
       window.removeEventListener('resize', measure)
     }
-  }, [target, patience])
+  }, [target, patience, stepKey])
 
-  return { box, settled }
+  return { box, state }
 }
 
 const CARD_W = 340
@@ -256,15 +267,16 @@ function TourOverlay({ step, ctx, moduleTitle, index, total, onNext, onSkip, onB
   onClose: () => void
 }) {
   // Optional parts are already on screen or not there at all, so there is no point waiting long for them.
-  const { box, settled } = useTargetBox(step.target, step.optional ? 800 : 2500)
-  const missing = settled && !box && Boolean(step.target) && Boolean(step.optional)
+  const { box, state } = useTargetBox(step.target, step.optional ? 700 : 2000, index)
+  const skipping = state === 'missing' && Boolean(step.target) && Boolean(step.optional)
   useEffect(() => {
-    if (missing) onSkip()
-  }, [missing, onSkip])
+    if (skipping) onSkip()
+  }, [skipping, onSkip])
+
   const cardRef = useRef<HTMLDivElement>(null)
   const [cardH, setCardH] = useState(200)
   useLayoutEffect(() => {
-    if (cardRef.current) setCardH(cardRef.current.offsetHeight)
+    if (cardRef.current && cardRef.current.offsetHeight !== cardH) setCardH(cardRef.current.offsetHeight)
   })
 
   const vw = window.innerWidth
@@ -295,7 +307,7 @@ function TourOverlay({ step, ctx, moduleTitle, index, total, onNext, onSkip, onB
       {/* Clicks outside the card are swallowed: the tour shows things, it never presses them. */}
       <div className={cx('tour-shield', !box && 'tour-dim')} />
       {box && <div className="tour-spot" style={{ top: box.top - PAD, left: box.left - PAD, width: box.width + PAD * 2, height: box.height + PAD * 2 }} />}
-      <div ref={cardRef} className={cx('tour-card', (!settled || missing) && 'tour-card-wait')} style={{ top: pos.top, left: pos.left, width: pos.width }}>
+      <div ref={cardRef} className={cx('tour-card', skipping && 'tour-card-wait')} style={{ top: pos.top, left: pos.left, width: pos.width }}>
         <div className="tour-head">
           <span className="muted small">
             {moduleTitle ? `${moduleTitle} · ` : ''}

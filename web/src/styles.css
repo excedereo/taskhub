@@ -1377,3 +1377,5 @@ body.dragging * { cursor: grabbing !important; user-select: none; }
 .guide-list li { display: flex; align-items: center; gap: 12px; padding: 9px 0; border-top: 1px solid var(--border); }
 .guide-list li:first-child { border-top: none; }
 .guide-done { color: var(--text-faint); }
+.task-row-demo { cursor: default; pointer-events: none; }
+.tour-demo-list { margin-bottom: 14px; }

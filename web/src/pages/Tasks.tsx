@@ -13,6 +13,7 @@ import { ArrangeList, CategoryList } from '../components/CategoryList.tsx'
 import { NewTaskModal } from '../components/NewTaskModal.tsx'
 import { CategoryModal } from '../components/CategoryModal.tsx'
 import { useToast } from '../components/Toast.tsx'
+import { DemoTaskRow, useTourDemo } from '../tour/demo.tsx'
 
 /** "active" (everything not done), "all", or one status as "s<id>". */
 type StatusFilter = string
@@ -151,6 +152,9 @@ export function TasksPage() {
   const canTake = can('take_tasks') || can('assign_tasks')
   const canArrange = Boolean(category) && (can('manage_categories') || can('edit_tasks'))
   const filtersActive = statusFilter !== 'all' || Boolean(assignee) || Boolean(query.trim())
+  // During the tour's Take step, an example row stands in when nothing here can be taken.
+  const demo = useTourDemo()
+  const demoTake = demo === 'take' && canTake && tasks !== null && !visible.some((t) => !t.assigneeId && !isDone(t))
 
   if (categoryId && categories.length && !category) {
     return (
@@ -259,6 +263,13 @@ export function TasksPage() {
             </div>
           </div>
 
+          {demoTake && (
+            <ul className="task-list tour-demo-list">
+              <li>
+                <DemoTaskRow kind="take" />
+              </li>
+            </ul>
+          )}
           {tasks === null ? (
             <div className="skeleton-list">
               {[0, 1, 2, 3].map((i) => (

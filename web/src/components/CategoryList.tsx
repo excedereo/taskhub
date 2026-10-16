@@ -8,6 +8,7 @@ import { TaskRow } from './TaskRow.tsx'
 import { useToast } from './Toast.tsx'
 import { useData } from '../store.tsx'
 import { moveItem, useDragSort } from './useDragSort.ts'
+import { DemoTaskRow, useTourDemo } from '../tour/demo.tsx'
 
 type Entry = { task: Task; kids: Task[] }
 type Block = { section: Section | null; entries: Entry[] }
@@ -70,6 +71,7 @@ export function CategoryList({ tasks, sections, matches, showEmptySections, open
         </li>
       )),
     ])
+  const demo = useTourDemo()
   const finished = visibleRows(
     blocks.flatMap((b) => b.entries).filter((e) => isDone(e.task)),
   ).sort((a, b) => (b.task.closedAt ?? 0) - (a.task.closedAt ?? 0))
@@ -110,6 +112,19 @@ export function CategoryList({ tasks, sections, matches, showEmptySections, open
             <span className="muted small">{finished.length}</span>
           </h2>
           <ul className="task-list">{renderRows(finished)}</ul>
+        </section>
+      )}
+      {finished.length === 0 && demo === 'finished' && (
+        <section className="stage stage-finished">
+          <h2 className="stage-head">
+            <span className="stage-title">Finished</span>
+            <span className="stage-line" aria-hidden />
+          </h2>
+          <ul className="task-list">
+            <li>
+              <DemoTaskRow kind="finished" />
+            </li>
+          </ul>
         </section>
       )}
     </div>
