@@ -105,6 +105,24 @@ const migrations: string[] = [
   );
   CREATE INDEX attachments_task ON attachments(task_id);
   `,
+  `
+  -- Subtasks are ordinary tasks with a parent (one level deep).
+  ALTER TABLE tasks ADD COLUMN parent_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE;
+  -- Manual order inside a category; top-level tasks share it with sections, subtasks with their siblings.
+  ALTER TABLE tasks ADD COLUMN position REAL NOT NULL DEFAULT 0;
+  UPDATE tasks SET position = id;
+  CREATE INDEX tasks_parent ON tasks(parent_id);
+
+  CREATE TABLE sections (
+    id          INTEGER PRIMARY KEY,
+    category_id INTEGER NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
+    title       TEXT NOT NULL,
+    position    REAL NOT NULL,
+    created_by  INTEGER REFERENCES users(id),
+    created_at  INTEGER NOT NULL
+  );
+  CREATE INDEX sections_category ON sections(category_id);
+  `,
 ]
 
 const current = (db.prepare('PRAGMA user_version').get() as { user_version: number }).user_version

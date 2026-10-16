@@ -88,9 +88,23 @@ export function describeEvent(e: AuditEvent, ctx: EventContext, inTask = false):
     }
 
     case 'task.created':
+      if (d.parentId) return <>created{inTask ? ' this subtask' : <> subtask{task}</>}</>
       return <>created{task || ' this task'}{!inTask && <> in {category(d.categoryId)}</>}</>
+    case 'task.subtask_added':
+      return <>added subtask <B>#{String(d.subtaskId)} {String(d.subtaskTitle ?? '')}</B>{task && <> to{task}</>}</>
     case 'task.deleted':
-      return <>deleted{task} from {category(d.categoryId)}</>
+      return <>deleted{task} from {category(d.categoryId)}{Number(d.subtasks) > 0 && ` together with ${d.subtasks} subtask(s)`}</>
+    case 'category.arranged': {
+      const added = (d.added ?? []) as string[]
+      const removed = (d.removed ?? []) as string[]
+      const renamed = (d.renamed ?? []) as [string, string][]
+      const details = [
+        added.length && `added ${added.map((s) => `“${s}”`).join(', ')}`,
+        removed.length && `removed ${removed.map((s) => `“${s}”`).join(', ')}`,
+        renamed.length && `renamed ${renamed.map(([a, b]) => `“${a}” to “${b}”`).join(', ')}`,
+      ].filter(Boolean)
+      return <>rearranged {name}{details.length ? `: ${details.join('; ')}` : ''}</>
+    }
     case 'task.taken':
       return <>took{task || ' this task'}</>
     case 'task.assigned':

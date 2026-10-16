@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
-import { Archive, Hash, Image, Layers, Pencil, Plus, Search, Users } from 'lucide-react'
+import { Archive, ArrowUpDown, Hash, Layers, Pencil, Plus, Search, Users } from 'lucide-react'
 import { Select } from '../components/Select.tsx'
 import { api } from '../api.ts'
 import { useData, useMe } from '../store.tsx'
-import { STATUSES, type Status, type Task } from '../types.ts'
-import { cx, displayName, formatDate, timeAgo } from '../util.ts'
-import { Avatar, Empty, PageHeader, PriorityIcon, StatusIcon } from '../components/ui.tsx'
+import { STATUSES, type Section, type Status, type Task } from '../types.ts'
+import { cx, displayName } from '../util.ts'
+import { Avatar, Empty, PageHeader, StatusIcon } from '../components/ui.tsx'
 import { TaskPanel } from '../components/TaskPanel.tsx'
+import { TaskRow } from '../components/TaskRow.tsx'
+import { ArrangeList, CategoryList } from '../components/CategoryList.tsx'
 import { NewTaskModal } from '../components/NewTaskModal.tsx'
 import { CategoryModal } from '../components/CategoryModal.tsx'
 import { useToast } from '../components/Toast.tsx'
@@ -27,19 +29,23 @@ export function TasksPage() {
   const me = useMe()
   const { categoryId: categoryParam } = useParams()
   const [params, setParams] = useSearchParams()
-  const { categories, categoryById, users, userById, can, reloadCategories } = useData()
+  const { categories, categoryById, users, can, reloadCategories } = useData()
   const toast = useToast()
 
   const categoryId = categoryParam ? Number(categoryParam) : null
   const category = categoryId ? categoryById.get(categoryId) : undefined
   const assignee = params.get('assignee') ?? ''
-  const statusFilter = (params.get('status') ?? 'active') as StatusFilter
+  // A category is a plan in a fixed order, so it shows finished work too; cross-category views focus on what is left.
+  const defaultFilter: StatusFilter = categoryId ? 'all' : 'active'
+  const statusFilter = (params.get('status') ?? defaultFilter) as StatusFilter
   const openTaskId = params.get('task') ? Number(params.get('task')) : null
 
   const [tasks, setTasks] = useState<Task[] | null>(null)
+  const [sections, setSections] = useState<Section[]>([])
   const [query, setQuery] = useState('')
   const [creating, setCreating] = useState(false)
   const [editingCategory, setEditingCategory] = useState(false)
+  const [arranging, setArranging] = useState(false)
 
   const setParam = useCallback(
     (key: string, value: string | null) => {
@@ -53,38 +59,51 @@ export function TasksPage() {
     [setParams],
   )
 
-  useEffect(() => {
-    let cancelled = false
+  const loadTasks = useCallback(() => {
     const qs = new URLSearchParams()
     if (categoryId) qs.set('categoryId', String(categoryId))
     if (assignee) qs.set('assignee', assignee)
     if (query.trim()) qs.set('q', query.trim())
+    return api.get<Task[]>(`/tasks?${qs}`)
+  }, [categoryId, assignee, query])
+
+  useEffect(() => {
+    let cancelled = false
     setTasks(null)
     const t = setTimeout(() => {
-      api.get<Task[]>(`/tasks?${qs}`).then((r) => !cancelled && setTasks(r)).catch(toast.error)
+      loadTasks().then((r) => !cancelled && setTasks(r)).catch(toast.error)
     }, query ? 200 : 0)
     return () => {
       cancelled = true
       clearTimeout(t)
     }
-  }, [categoryId, assignee, query, toast])
+  }, [loadTasks, query, toast])
 
-  const visible = useMemo(() => {
-    if (!tasks) return []
-    if (statusFilter === 'all') return tasks
-    if (statusFilter === 'active') return tasks.filter((t) => t.status !== 'done')
-    return tasks.filter((t) => t.status === statusFilter)
-  }, [tasks, statusFilter])
+  useEffect(() => {
+    setArranging(false)
+    setSections([])
+    if (categoryId) api.get<Section[]>(`/categories/${categoryId}/sections`).then(setSections).catch(toast.error)
+  }, [categoryId, toast])
 
+  const matches = useCallback(
+    (t: Task) => (statusFilter === 'all' ? true : statusFilter === 'active' ? t.status !== 'done' : t.status === statusFilter),
+    [statusFilter],
+  )
+
+  const visible = useMemo(() => (tasks ?? []).filter(matches), [tasks, matches])
   const groups = GROUP_ORDER.map((status) => ({ status, items: visible.filter((t) => t.status === status) })).filter((g) => g.items.length)
+  const taskById = useMemo(() => new Map((tasks ?? []).map((t) => [t.id, t])), [tasks])
 
-  const upsert = (task: Task) =>
-    setTasks((list) => {
-      if (!list) return list
-      const fits = (!categoryId || task.categoryId === categoryId) && (assignee !== 'me' || task.assigneeId === me.id)
-      const without = list.filter((t) => t.id !== task.id)
-      return fits ? [task, ...without].sort((a, b) => GROUP_ORDER.indexOf(a.status) - GROUP_ORDER.indexOf(b.status) || b.updatedAt - a.updatedAt) : without
-    })
+  const upsert = useCallback(
+    (task: Task) =>
+      setTasks((list) => {
+        if (!list) return list
+        const fits = (!categoryId || task.categoryId === categoryId) && (assignee !== 'me' || task.assigneeId === me.id)
+        const without = list.filter((t) => t.id !== task.id)
+        return fits ? [task, ...without].sort((a, b) => GROUP_ORDER.indexOf(a.status) - GROUP_ORDER.indexOf(b.status) || b.updatedAt - a.updatedAt) : without
+      }),
+    [categoryId, assignee, me.id],
+  )
 
   const take = async (task: Task) => {
     try {
@@ -95,10 +114,14 @@ export function TasksPage() {
     }
   }
 
+  const open = (t: Task) => setParam('task', String(t.id))
+
   const title = category ? category.name : assignee === 'me' ? 'My tasks' : 'All tasks'
   const hasCategories = categories.some((c) => !c.archived)
   const canCreate = can('create_tasks') && hasCategories && !category?.archived
   const canTake = can('take_tasks') || can('assign_tasks')
+  const canArrange = Boolean(category) && (can('manage_categories') || can('edit_tasks'))
+  const filtersActive = statusFilter !== 'all' || Boolean(assignee) || Boolean(query.trim())
 
   if (categoryId && categories.length && !category) {
     return (
@@ -125,116 +148,130 @@ export function TasksPage() {
         }
         description={category?.description || (assignee === 'me' ? 'Tasks assigned to you' : !category ? 'Every task across all categories' : undefined)}
         actions={
-          <>
-            {category && can('manage_categories') && (
-              <button className="btn btn-ghost" onClick={() => setEditingCategory(true)}>
-                <Pencil size={14} /> Edit
-              </button>
-            )}
-            {canCreate && (
-              <button className="btn btn-primary" onClick={() => setCreating(true)}>
-                <Plus size={14} /> New task
-              </button>
-            )}
-          </>
+          !arranging && (
+            <>
+              {category && can('manage_categories') && (
+                <button className="btn btn-ghost" onClick={() => setEditingCategory(true)}>
+                  <Pencil size={14} /> Edit
+                </button>
+              )}
+              {canArrange && (
+                <button className="btn btn-ghost" onClick={() => setArranging(true)}>
+                  <ArrowUpDown size={14} /> Arrange
+                </button>
+              )}
+              {canCreate && (
+                <button className="btn btn-primary" onClick={() => setCreating(true)}>
+                  <Plus size={14} /> New task
+                </button>
+              )}
+            </>
+          )
         }
       />
 
-      <div className="toolbar">
-        <div className="segmented" role="tablist" aria-label="Status filter">
-          {FILTERS.map((f) => (
-            <button key={f.key} role="tab" aria-selected={statusFilter === f.key} className={cx(statusFilter === f.key && 'active')} onClick={() => setParam('status', f.key === 'active' ? null : f.key)}>
-              {f.label}
-            </button>
-          ))}
-        </div>
-        <div className="toolbar-right">
-          <label className="search">
-            <Search size={14} />
-            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search or #id" aria-label="Search tasks" />
-          </label>
-          <Select
-            variant="sm"
-            aria-label="Assignee filter"
-            value={assignee}
-            onChange={(v) => setParam('assignee', v)}
-            options={[
-              { value: '', label: 'Anyone', icon: <Users size={14} className="muted" /> },
-              { value: 'me', label: 'Assigned to me', icon: <Avatar user={me} size={18} /> },
-              { value: 'none', label: 'Unassigned', icon: <span className="avatar avatar-empty" style={{ width: 18, height: 18 }} /> },
-              ...users
-                .filter((u) => u.id !== me.id && u.status !== 'invited')
-                .map((u) => ({ value: String(u.id), label: displayName(u), icon: <Avatar user={u} size={18} /> })),
-            ]}
-          />
-        </div>
-      </div>
-
-      {tasks === null ? (
-        <div className="skeleton-list">
-          {[0, 1, 2, 3].map((i) => (
-            <div key={i} className="skeleton-row" />
-          ))}
-        </div>
-      ) : !hasCategories ? (
-        <Empty icon={<Layers size={20} />} title="No categories yet">
-          {can('manage_categories') ? 'Create one with the + next to Categories in the sidebar, for example "Bug reports".' : 'Ask someone who manages categories to create the first one.'}
-        </Empty>
-      ) : groups.length === 0 ? (
-        <Empty icon={<Layers size={20} />} title={query ? 'Nothing matches your search' : 'No tasks here'}>
-          {canCreate && !query && (
-            <button className="btn" onClick={() => setCreating(true)}>
-              <Plus size={14} /> New task
-            </button>
-          )}
-        </Empty>
+      {arranging && categoryId ? (
+        <ArrangeList
+          categoryId={categoryId}
+          sections={sections}
+          onCancel={() => setArranging(false)}
+          onSaved={(s) => {
+            setSections(s)
+            setArranging(false)
+            loadTasks().then(setTasks).catch(toast.error)
+            toast.info('Order saved')
+          }}
+        />
       ) : (
-        <div className="task-groups">
-          {groups.map((g) => (
-            <section key={g.status} className="task-group">
-              <h2 className="group-head">
-                <StatusIcon status={g.status} />
-                {STATUSES.find((s) => s.key === g.status)?.label}
-                <span className="muted">{g.items.length}</span>
-              </h2>
-              <ul className="task-list">
-                {g.items.map((t) => {
-                  const assigneeUser = t.assigneeId ? userById.get(t.assigneeId) : null
-                  return (
-                    <li key={t.id}>
-                      <div role="button" tabIndex={0} className={cx('task-row', openTaskId === t.id && 'selected')} onClick={() => setParam('task', String(t.id))} onKeyDown={(e) => e.key === 'Enter' && setParam('task', String(t.id))}>
-                        <PriorityIcon priority={t.priority} />
-                        <span className="task-id">#{t.id}</span>
-                        <StatusIcon status={t.status} />
-                        <span className="task-title truncate">{t.title}</span>
-                        {t.attachmentCount > 0 && (
-                          <span className="task-images muted small" title={`${t.attachmentCount} image(s)`}>
-                            <Image size={13} /> {t.attachmentCount}
-                          </span>
-                        )}
-                        {!category && <span className="badge task-category">{categoryById.get(t.categoryId)?.name}</span>}
-                        <span className="task-time muted small" title={formatDate(t.updatedAt)}>
-                          {timeAgo(t.updatedAt)}
-                        </span>
-                        <span className="task-assignee">
-                          {assigneeUser ? (
-                            <Avatar user={assigneeUser} size={22} />
-                          ) : canTake && t.status !== 'done' ? (
-                            <button className="btn btn-sm btn-ghost take-btn" onClick={(e) => (e.stopPropagation(), take(t))}>
-                              Take
-                            </button>
-                          ) : (
-                            <span className="avatar avatar-empty" style={{ width: 22, height: 22 }} title="Unassigned" />
-                          )}
-                        </span>
-                      </div>
-                    </li>
-                  )
-                })}
-              </ul>
-            </section>
-          ))}
-        </div>
+        <>
+          <div className="toolbar">
+            <div className="segmented" role="tablist" aria-label="Status filter">
+              {FILTERS.map((f) => (
+                <button key={f.key} role="tab" aria-selected={statusFilter === f.key} className={cx(statusFilter === f.key && 'active')} onClick={() => setParam('status', f.key === defaultFilter ? null : f.key)}>
+                  {f.label}
+                </button>
+              ))}
+            </div>
+            <div className="toolbar-right">
+              <label className="search">
+                <Search size={14} />
+                <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search or #id" aria-label="Search tasks" />
+              </label>
+              <Select
+                variant="sm"
+                aria-label="Assignee filter"
+                value={assignee}
+                onChange={(v) => setParam('assignee', v)}
+                options={[
+                  { value: '', label: 'Anyone', icon: <Users size={14} className="muted" /> },
+                  { value: 'me', label: 'Assigned to me', icon: <Avatar user={me} size={18} /> },
+                  { value: 'none', label: 'Unassigned', icon: <span className="avatar avatar-empty" style={{ width: 18, height: 18 }} /> },
+                  ...users
+                    .filter((u) => u.id !== me.id && u.status !== 'invited')
+                    .map((u) => ({ value: String(u.id), label: displayName(u), icon: <Avatar user={u} size={18} /> })),
+                ]}
+              />
+            </div>
+          </div>
+
+          {tasks === null ? (
+            <div className="skeleton-list">
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="skeleton-row" />
+              ))}
+            </div>
+          ) : !hasCategories ? (
+            <Empty icon={<Layers size={20} />} title="No categories yet">
+              {can('manage_categories') ? 'Create one with the + next to Categories in the sidebar, for example "Bug reports".' : 'Ask someone who manages categories to create the first one.'}
+            </Empty>
+          ) : (category ? !visible.length && !(sections.length && !filtersActive) : groups.length === 0) ? (
+            <Empty icon={<Layers size={20} />} title={query ? 'Nothing matches your search' : 'No tasks here'}>
+              {canCreate && !query && (
+                <button className="btn" onClick={() => setCreating(true)}>
+                  <Plus size={14} /> New task
+                </button>
+              )}
+            </Empty>
+          ) : category ? (
+            <CategoryList
+              tasks={tasks}
+              sections={sections}
+              matches={matches}
+              showEmptySections={!filtersActive}
+              openTaskId={openTaskId}
+              canTake={canTake}
+              onOpen={open}
+              onTake={take}
+            />
+          ) : (
+            <div className="task-groups">
+              {groups.map((g) => (
+                <section key={g.status} className="task-group">
+                  <h2 className="group-head">
+                    <StatusIcon status={g.status} />
+                    {STATUSES.find((s) => s.key === g.status)?.label}
+                    <span className="muted">{g.items.length}</span>
+                  </h2>
+                  <ul className="task-list">
+                    {g.items.map((t) => (
+                      <li key={t.id}>
+                        <TaskRow
+                          task={t}
+                          parent={t.parentId ? taskById.get(t.parentId) : undefined}
+                          showCategory
+                          selected={openTaskId === t.id}
+                          canTake={canTake}
+                          onOpen={open}
+                          onTake={take}
+                        />
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ))}
+            </div>
+          )}
+        </>
       )}
 
       {openTaskId && (
@@ -242,8 +279,9 @@ export function TasksPage() {
           key={openTaskId}
           taskId={openTaskId}
           onClose={() => setParam('task', null)}
+          onOpenTask={(id) => setParam('task', String(id))}
           onChanged={upsert}
-          onDeleted={(id) => setTasks((list) => list?.filter((t) => t.id !== id) ?? list)}
+          onDeleted={(id) => setTasks((list) => list?.filter((t) => t.id !== id && t.parentId !== id) ?? list)}
         />
       )}
       {creating && <NewTaskModal defaultCategoryId={category && !category.archived ? category.id : undefined} onClose={() => setCreating(false)} onCreated={(t) => (upsert(t), setParam('task', String(t.id)))} />}

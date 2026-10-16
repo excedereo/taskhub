@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState, type DragEvent } from 'react'
-import { Hash, ImagePlus, Trash2, X } from 'lucide-react'
+import { Hash, ImagePlus, Plus, Trash2, X } from 'lucide-react'
 import { api, imageFiles, uploadImage } from '../api.ts'
 import { useData, useMe, useSession } from '../store.tsx'
 import { PRIORITIES, STATUSES, type Attachment, type AuditEvent, type Task } from '../types.ts'
-import { displayName, formatDate, timeAgo } from '../util.ts'
+import { cx, displayName, formatDate, timeAgo } from '../util.ts'
 import { Avatar, ConfirmButton, PriorityIcon, StatusIcon, UserChip } from './ui.tsx'
 import { Select } from './Select.tsx'
 import { AutoTextarea } from './AutoTextarea.tsx'
@@ -14,16 +14,17 @@ import { useToast } from './Toast.tsx'
 type Props = {
   taskId: number
   onClose: () => void
+  onOpenTask: (id: number) => void
   onChanged: (task: Task) => void
   onDeleted: (id: number) => void
 }
 
-type TaskDetails = { task: Task; history: AuditEvent[]; attachments: Attachment[] }
+type TaskDetails = { task: Task; history: AuditEvent[]; attachments: Attachment[]; subtasks: Task[]; parent: { id: number; title: string } | null }
 type Pending = { key: string; url: string; name: string; width: number | null; height: number | null }
 
 let pendingSeq = 0
 
-export function TaskPanel({ taskId, onClose, onChanged, onDeleted }: Props) {
+export function TaskPanel({ taskId, onClose, onOpenTask, onChanged, onDeleted }: Props) {
   const me = useMe()
   const { meta } = useSession()
   const { users, userById, roleById, categoryById, categories, can, reloadCategories } = useData()
@@ -31,6 +32,9 @@ export function TaskPanel({ taskId, onClose, onChanged, onDeleted }: Props) {
   const [task, setTask] = useState<Task | null>(null)
   const [history, setHistory] = useState<AuditEvent[]>([])
   const [attachments, setAttachments] = useState<Attachment[]>([])
+  const [subtasks, setSubtasks] = useState<Task[]>([])
+  const [parent, setParent] = useState<TaskDetails['parent']>(null)
+  const [newSubtask, setNewSubtask] = useState('')
   const [pending, setPending] = useState<Pending[]>([])
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
@@ -50,6 +54,8 @@ export function TaskPanel({ taskId, onClose, onChanged, onDeleted }: Props) {
       setTask(res.task)
       setHistory(res.history)
       setAttachments(res.attachments)
+      setSubtasks(res.subtasks)
+      setParent(res.parent)
       setTitle(res.task.title)
       setDescription(res.task.description)
     } catch (err) {
@@ -64,7 +70,9 @@ export function TaskPanel({ taskId, onClose, onChanged, onDeleted }: Props) {
     setTask(res.task)
     setHistory(res.history)
     setAttachments(res.attachments)
+    setSubtasks(res.subtasks)
     changedRef.current(res.task)
+    res.subtasks.forEach((s) => changedRef.current(s))
   }, [taskId])
 
   useEffect(() => {
@@ -142,6 +150,13 @@ export function TaskPanel({ taskId, onClose, onChanged, onDeleted }: Props) {
   const assign = (userId: number | null) => mutate(() => api.post(`/tasks/${task.id}/assign`, { userId }))
   const take = () => mutate(() => api.post(`/tasks/${task.id}/take`))
   const removeImage = (item: GalleryItem) => mutate(() => api.del(`/attachments/${item.key.slice(1)}`))
+  const toggleSubtask = (s: Task) => mutate(() => api.patch(`/tasks/${s.id}`, { status: s.status === 'done' ? 'open' : 'done' }))
+  const addSubtask = () => {
+    const value = newSubtask.trim()
+    if (!value) return
+    setNewSubtask('')
+    mutate(() => api.post(`/tasks`, { parentId: task.id, title: value }))
+  }
 
   const remove = async () => {
     try {
@@ -202,12 +217,20 @@ export function TaskPanel({ taskId, onClose, onChanged, onDeleted }: Props) {
     <div className="panel-backdrop" onMouseDown={onClose}>
       <aside className="panel" onMouseDown={(e) => e.stopPropagation()} aria-label={`Task #${task.id}`} {...dropProps}>
         <div className="panel-head">
-          <span className="muted small">
+          <span className="muted small truncate">
             #{task.id} · {category?.name ?? 'Unknown category'}
+            {parent && (
+              <>
+                {' · subtask of '}
+                <button className="link-btn" onClick={() => onOpenTask(parent.id)}>
+                  #{parent.id} {parent.title}
+                </button>
+              </>
+            )}
           </span>
           <div className="row gap-xs">
             {can('delete_tasks') && (
-              <ConfirmButton className="btn-sm" confirmText="Delete task?" onConfirm={remove}>
+              <ConfirmButton className="btn-sm" confirmText={task.subtaskCount ? `Delete with ${task.subtaskCount} subtask(s)?` : 'Delete task?'} onConfirm={remove}>
                 <Trash2 size={14} /> Delete
               </ConfirmButton>
             )}
@@ -284,7 +307,7 @@ export function TaskPanel({ taskId, onClose, onChanged, onDeleted }: Props) {
                 variant="ghost"
                 aria-label="Category"
                 value={task.categoryId}
-                disabled={!canEdit}
+                disabled={!canEdit || Boolean(task.parentId)}
                 onChange={(categoryId) => patch({ categoryId })}
                 options={categories
                   .filter((c) => !c.archived || c.id === task.categoryId)
@@ -325,6 +348,50 @@ export function TaskPanel({ taskId, onClose, onChanged, onDeleted }: Props) {
               <p className="muted">No description</p>
             )}
           </section>
+
+          {!task.parentId && (subtasks.length > 0 || can('create_tasks')) && (
+            <section className="panel-section">
+              <h3>
+                Subtasks{' '}
+                {subtasks.length > 0 && (
+                  <span className="muted">
+                    {subtasks.filter((s) => s.status === 'done').length}/{subtasks.length}
+                  </span>
+                )}
+              </h3>
+              {subtasks.length > 0 && (
+                <div className="progress" aria-hidden>
+                  <span style={{ width: `${(subtasks.filter((s) => s.status === 'done').length / subtasks.length) * 100}%` }} />
+                </div>
+              )}
+              <ul className="subtasks">
+                {subtasks.map((s) => (
+                  <li key={s.id} className={cx('subtask', s.status === 'done' && 'task-row-done')}>
+                    <button className="subtask-check" onClick={() => toggleSubtask(s)} title={s.status === 'done' ? 'Mark as open' : 'Mark as done'} aria-label={s.status === 'done' ? 'Mark as open' : 'Mark as done'}>
+                      <StatusIcon status={s.status} size={16} />
+                    </button>
+                    <button className="subtask-title" onClick={() => onOpenTask(s.id)}>
+                      <span className="truncate">{s.title}</span>
+                    </button>
+                    <span className="muted small">#{s.id}</span>
+                    {s.assigneeId ? <Avatar user={userById.get(s.assigneeId)} size={20} /> : <span className="avatar avatar-empty" style={{ width: 20, height: 20 }} />}
+                  </li>
+                ))}
+              </ul>
+              {can('create_tasks') && (
+                <form
+                  className="subtask-add"
+                  onSubmit={(e) => {
+                    e.preventDefault()
+                    addSubtask()
+                  }}
+                >
+                  <Plus size={14} className="muted" />
+                  <input value={newSubtask} onChange={(e) => setNewSubtask(e.target.value)} placeholder="Add a subtask and press Enter" maxLength={200} />
+                </form>
+              )}
+            </section>
+          )}
 
           {(gallery.length > 0 || canWork) && (
             <section className="panel-section">

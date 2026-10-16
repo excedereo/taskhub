@@ -69,6 +69,17 @@ export type Task = {
   updatedAt: number
   closedAt: number | null
   attachmentCount: number
+  parentId: number | null
+  position: number
+  subtaskCount: number
+  subtaskDone: number
+}
+
+export type Section = {
+  id: number
+  categoryId: number
+  title: string
+  position: number
 }
 
 export type Attachment = {
