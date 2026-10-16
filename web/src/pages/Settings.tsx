@@ -49,7 +49,7 @@ export function SettingsPage() {
 
   return (
     <div className="page page-narrow">
-      <PageHeader title="Settings" description="Instance-wide options. Changes are recorded in the audit log." />
+      <PageHeader title="Workspace settings" description="Applies to everyone. Changes are recorded in the audit log." />
 
       <LogoField />
 

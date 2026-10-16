@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { Archive, ChartColumn, Hash, Inbox, Layers, LogOut, PanelLeftClose, PanelLeftOpen, Plus, ScrollText, Settings, Shield, Users } from 'lucide-react'
+import { Archive, Building2, ChartColumn, Hash, Inbox, Layers, LogOut, PanelLeftClose, PanelLeftOpen, Plus, ScrollText, Settings, Shield, Users } from 'lucide-react'
 import { useData, useMe, useSession } from '../store.tsx'
 import { cx, displayName } from '../util.ts'
 import { Avatar, BrandMark } from './ui.tsx'
@@ -72,7 +72,7 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
             {can('manage_users') && <NavItem to="/users" icon={<Users size={16} />} label="Users" active={pathname === '/users'} collapsed={collapsed} />}
             {can('manage_roles') && <NavItem to="/roles" icon={<Shield size={16} />} label="Roles" active={pathname === '/roles'} collapsed={collapsed} />}
             {can('view_audit') && <NavItem to="/audit" icon={<ScrollText size={16} />} label="Audit log" active={pathname === '/audit'} collapsed={collapsed} />}
-            {can('manage_settings') && <NavItem to="/settings" icon={<Settings size={16} />} label="Settings" active={pathname === '/settings'} collapsed={collapsed} />}
+            {can('manage_settings') && <NavItem to="/workspace" icon={<Building2 size={16} />} label="Workspace settings" active={pathname === '/workspace'} collapsed={collapsed} />}
           </div>
         )}
       </nav>
@@ -84,6 +84,9 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
             <span className="truncate">{displayName(me)}</span>
             <span className="muted small truncate">{me.roleName}</span>
           </span>
+        </Link>
+        <Link to="/settings" className={cx('icon-btn sign-out', pathname === '/settings' && 'active')} aria-label="Settings" title="Settings">
+          <Settings size={16} />
         </Link>
         <button className="icon-btn sign-out" onClick={() => signOut().then(() => navigate('/login'))} aria-label="Sign out" title="Sign out">
           <LogOut size={16} />
