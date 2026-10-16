@@ -49,16 +49,35 @@ type ListProps = {
   onTake: (t: Task) => void
 }
 
+/**
+ * The category page: unfinished work in the manual order with its sections,
+ * and everything that is done collected at the bottom under "Finished", most recent first.
+ */
 export function CategoryList({ tasks, sections, matches, showEmptySections, openTaskId, canTake, onOpen, onTake }: ListProps) {
   const blocks = buildBlocks(tasks, sections)
+  const visibleRows = (entries: Entry[]) =>
+    entries.map((e) => ({ ...e, kids: e.kids.filter(matches) })).filter((e) => matches(e.task) || e.kids.length)
+  const renderRows = (rows: Entry[]) =>
+    rows.flatMap(({ task, kids }) => [
+      <li key={task.id}>
+        <TaskRow task={task} nested={Boolean(task.parentId)} selected={openTaskId === task.id} canTake={canTake} onOpen={onOpen} onTake={onTake} />
+      </li>,
+      ...kids.map((k) => (
+        <li key={k.id}>
+          <TaskRow task={k} nested selected={openTaskId === k.id} canTake={canTake} onOpen={onOpen} onTake={onTake} />
+        </li>
+      )),
+    ])
+  const finished = visibleRows(
+    blocks.flatMap((b) => b.entries).filter((e) => e.task.status === 'done'),
+  ).sort((a, b) => (b.task.closedAt ?? 0) - (a.task.closedAt ?? 0))
 
   return (
     <div className="stages">
       {blocks.map((b) => {
-        const rows = b.entries
-          .map((e) => ({ ...e, kids: e.kids.filter(matches) }))
-          .filter((e) => matches(e.task) || e.kids.length)
+        const rows = visibleRows(b.entries.filter((e) => e.task.status !== 'done'))
         if (!rows.length && !(b.section && showEmptySections)) return null
+        // The counter still covers finished tasks, so a section shows how far along it is.
         const done = b.entries.filter((e) => e.task.status === 'done').length
 
         return (
@@ -73,24 +92,24 @@ export function CategoryList({ tasks, sections, matches, showEmptySections, open
               </h2>
             )}
             {rows.length ? (
-              <ul className="task-list">
-                {rows.flatMap(({ task, kids }) => [
-                  <li key={task.id}>
-                    <TaskRow task={task} nested={Boolean(task.parentId)} selected={openTaskId === task.id} canTake={canTake} onOpen={onOpen} onTake={onTake} />
-                  </li>,
-                  ...kids.map((k) => (
-                    <li key={k.id}>
-                      <TaskRow task={k} nested selected={openTaskId === k.id} canTake={canTake} onOpen={onOpen} onTake={onTake} />
-                    </li>
-                  )),
-                ])}
-              </ul>
+              <ul className="task-list">{renderRows(rows)}</ul>
             ) : (
-              <p className="stage-empty">Nothing here yet</p>
+              <p className="stage-empty">{b.entries.length && done === b.entries.length ? 'All done' : 'Nothing here yet'}</p>
             )}
           </section>
         )
       })}
+
+      {finished.length > 0 && (
+        <section className="stage stage-finished">
+          <h2 className="stage-head">
+            <span className="stage-title">Finished</span>
+            <span className="stage-line" aria-hidden />
+            <span className="muted small">{finished.length}</span>
+          </h2>
+          <ul className="task-list">{renderRows(finished)}</ul>
+        </section>
+      )}
     </div>
   )
 }

@@ -22,6 +22,23 @@ const FILTERS: { key: StatusFilter; label: string }[] = [
   { key: 'all', label: 'All' },
 ]
 
+function readFilter(key: string): StatusFilter | null {
+  try {
+    const value = localStorage.getItem(key)
+    return FILTERS.some((f) => f.key === value) ? (value as StatusFilter) : null
+  } catch {
+    return null
+  }
+}
+
+function writeFilter(key: string, value: StatusFilter) {
+  try {
+    localStorage.setItem(key, value)
+  } catch {
+    // storage unavailable: the filter just won't be remembered
+  }
+}
+
 // Order of groups on screen: what is being worked on comes first.
 const GROUP_ORDER: Status[] = ['in_progress', 'review', 'open', 'done']
 
@@ -37,7 +54,11 @@ export function TasksPage() {
   const assignee = params.get('assignee') ?? ''
   // A category is a plan in a fixed order, so it shows finished work too; cross-category views focus on what is left.
   const defaultFilter: StatusFilter = categoryId ? 'all' : 'active'
-  const statusFilter = (params.get('status') ?? defaultFilter) as StatusFilter
+  // The chosen filter is remembered per person and per view (each category, All tasks, My tasks).
+  const filterKey = `taskhub.status.${me.id}.${categoryId ? `c${categoryId}` : assignee === 'me' ? 'my' : 'all'}`
+  const [filterVersion, setFilterVersion] = useState(0)
+  const savedFilter = useMemo(() => readFilter(filterKey), [filterKey, filterVersion])
+  const statusFilter = (params.get('status') ?? savedFilter ?? defaultFilter) as StatusFilter
   const openTaskId = params.get('task') ? Number(params.get('task')) : null
 
   const [tasks, setTasks] = useState<Task[] | null>(null)
@@ -188,7 +209,11 @@ export function TasksPage() {
           <div className="toolbar">
             <div className="segmented" role="tablist" aria-label="Status filter">
               {FILTERS.map((f) => (
-                <button key={f.key} role="tab" aria-selected={statusFilter === f.key} className={cx(statusFilter === f.key && 'active')} onClick={() => setParam('status', f.key === defaultFilter ? null : f.key)}>
+                <button key={f.key} role="tab" aria-selected={statusFilter === f.key} className={cx(statusFilter === f.key && 'active')} onClick={() => {
+                    writeFilter(filterKey, f.key)
+                    setFilterVersion((v) => v + 1)
+                    setParam('status', null)
+                  }}>
                   {f.label}
                 </button>
               ))}

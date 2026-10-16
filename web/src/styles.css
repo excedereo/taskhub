@@ -1007,3 +1007,4 @@ select.input { padding-right: 6px; }
 .is-dragging > .arrange-row { border-color: var(--border-strong); box-shadow: var(--shadow); }
 body.dragging,
 body.dragging * { cursor: grabbing !important; user-select: none; }
+.stage-finished .stage-title { color: var(--status-done); }
