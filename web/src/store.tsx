@@ -6,6 +6,7 @@ type Session = {
   meta: Meta | null
   me: Me | null | undefined // undefined while loading
   refreshMe: () => Promise<void>
+  refreshMeta: () => Promise<void>
   signOut: () => Promise<void>
 }
 
@@ -40,18 +41,27 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setMe(null)
   }, [])
 
+  const refreshMeta = useCallback(async () => {
+    const m = await api.get<Meta>('/meta')
+    setMeta(m)
+    document.title = m.instanceName
+    // The uploaded logo doubles as the browser tab icon.
+    const icon = document.querySelector<HTMLLinkElement>('link[rel="icon"]')
+    if (icon) {
+      icon.href = m.logoUrl ?? '/favicon.svg'
+      icon.type = m.logoUrl ? '' : 'image/svg+xml'
+    }
+  }, [])
+
   useEffect(() => {
-    api.get<Meta>('/meta').then((m) => {
-      setMeta(m)
-      document.title = m.instanceName
-    })
+    refreshMeta()
     refreshMe()
     const onUnauthorized = () => setMe(null)
     window.addEventListener(UNAUTHORIZED_EVENT, onUnauthorized)
     return () => window.removeEventListener(UNAUTHORIZED_EVENT, onUnauthorized)
-  }, [refreshMe])
+  }, [refreshMe, refreshMeta])
 
-  const value = useMemo(() => ({ meta, me, refreshMe, signOut }), [meta, me, refreshMe, signOut])
+  const value = useMemo(() => ({ meta, me, refreshMe, refreshMeta, signOut }), [meta, me, refreshMe, refreshMeta, signOut])
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>
 }
 

@@ -8,6 +8,7 @@ export type Meta = {
   discordConfigured: boolean
   devLogin: boolean
   needsSetup: boolean
+  logoUrl: string | null
   permissions: PermissionInfo[]
 }
 
@@ -23,6 +24,8 @@ export type Me = {
   permissions: string[]
   /** Categories this user may create tasks in; null means all of them. */
   createCategoryIds: number[] | null
+  /** Categories this user can see; null means all of them. */
+  viewCategoryIds: number[] | null
 }
 
 export type User = {
@@ -46,6 +49,7 @@ export type Role = {
   isDefault: boolean
   memberCount: number
   createCategories: number[] | null
+  viewCategories: number[] | null
 }
 
 export type Category = {

@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { Navigate } from 'react-router-dom'
 import { UserPlus } from 'lucide-react'
 import { api } from '../api.ts'
 import { useData, useMe } from '../store.tsx'
@@ -17,6 +18,7 @@ export function UsersPage() {
   const [adding, setAdding] = useState(false)
 
   const canManage = can('manage_users')
+  if (!canManage) return <Navigate to="/tasks" replace />
   const grantable = roles.filter((r) => covers(me.permissions, r.permissions))
   const manageable = (u: User) => canManage && u.id !== me.id && covers(me.permissions, roleById.get(u.roleId)?.permissions ?? [])
 

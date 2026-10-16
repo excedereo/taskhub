@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { db } from '../db.ts'
-import { can } from '../http.ts'
+import { can, canSeeCategory, visibilityFilter } from '../http.ts'
 
 export const analyticsRouter = Router()
 
@@ -26,10 +26,11 @@ analyticsRouter.get('/analytics', (req, res) => {
   const now = Date.now()
   const since = now - days * DAY
 
+  const visible = visibilityFilter(req, 'category_id')
   const tasks = db.prepare(`
     SELECT id, category_id, parent_id, position, title, status, assignee_id, updated_at, closed_at
-    FROM tasks WHERE archived_at IS NULL
-  `).all() as Row[]
+    FROM tasks WHERE archived_at IS NULL${visible.sql}
+  `).all(...visible.params) as Row[]
 
   const closedBetween = (from: number, to: number) => tasks.filter((t) => t.status === 'done' && t.closed_at !== null && t.closed_at >= from && t.closed_at < to).length
   const overview = {
@@ -40,7 +41,7 @@ analyticsRouter.get('/analytics', (req, res) => {
     closedPrev: closedBetween(since - days * DAY, since),
   }
 
-  const categoryRows = db.prepare('SELECT id, name FROM categories WHERE archived = 0 ORDER BY id').all() as { id: number; name: string }[]
+  const categoryRows = (db.prepare('SELECT id, name FROM categories WHERE archived = 0 ORDER BY id').all() as { id: number; name: string }[]).filter((c) => canSeeCategory(req, c.id))
   const sectionRows = db.prepare('SELECT id, category_id, title, position FROM sections ORDER BY position').all() as { id: number; category_id: number; title: string; position: number }[]
 
   const categories = categoryRows.map((c) => {

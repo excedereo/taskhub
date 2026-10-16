@@ -1,9 +1,9 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { api } from '../api.ts'
-import { useData } from '../store.tsx'
+import { api, IMAGE_TYPES } from '../api.ts'
+import { useData, useSession } from '../store.tsx'
 import type { Settings } from '../types.ts'
 import { cx } from '../util.ts'
-import { Empty, Field, PageHeader } from '../components/ui.tsx'
+import { BrandMark, Empty, Field, PageHeader } from '../components/ui.tsx'
 import { Select } from '../components/Select.tsx'
 import { useToast } from '../components/Toast.tsx'
 import { roleOptions } from '../components/ui.tsx'
@@ -51,6 +51,8 @@ export function SettingsPage() {
     <div className="page page-narrow">
       <PageHeader title="Settings" description="Instance-wide options. Changes are recorded in the audit log." />
 
+      <LogoField />
+
       <form className="card form" onSubmit={submit}>
         <Field label="Instance name" hint="Shown in the sidebar, the sign-in page and the browser tab.">
           <input className="input" value={form.instanceName} maxLength={40} onChange={(e) => setForm({ ...form, instanceName: e.target.value })} />
@@ -88,6 +90,70 @@ export function SettingsPage() {
           </button>
         </div>
       </form>
+    </div>
+  )
+}
+
+/** Uploaded on its own (not with the form), so a new logo shows up right away everywhere. */
+function LogoField() {
+  const { meta, refreshMeta } = useSession()
+  const toast = useToast()
+  const [busy, setBusy] = useState(false)
+  if (!meta) return null
+
+  const upload = async (file: File) => {
+    setBusy(true)
+    try {
+      const res = await fetch('/api/settings/logo', { method: 'POST', headers: { 'Content-Type': file.type || 'application/octet-stream' }, body: file, credentials: 'same-origin' })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error ?? res.statusText)
+      await refreshMeta()
+      toast.info('Logo updated')
+    } catch (err) {
+      toast.error(err)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const remove = async () => {
+    setBusy(true)
+    try {
+      await api.del('/settings/logo')
+      await refreshMeta()
+    } catch (err) {
+      toast.error(err)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="card logo-field">
+      <BrandMark name={meta.instanceName} logoUrl={meta.logoUrl} large />
+      <div className="stack grow">
+        <span>Logo</span>
+        <span className="muted small">Square PNG, JPEG, WebP or GIF up to 2 MB. Used in the sidebar, on the sign-in page and as the tab icon.</span>
+      </div>
+      <label className={cx('btn', busy && 'btn-disabled')}>
+        {meta.logoUrl ? 'Replace' : 'Upload'}
+        <input
+          type="file"
+          accept={IMAGE_TYPES.join(',')}
+          hidden
+          disabled={busy}
+          onChange={(e) => {
+            const file = e.target.files?.[0]
+            e.target.value = ''
+            if (file) upload(file)
+          }}
+        />
+      </label>
+      {meta.logoUrl && (
+        <button type="button" className="btn btn-ghost" disabled={busy} onClick={remove}>
+          Remove
+        </button>
+      )}
     </div>
   )
 }

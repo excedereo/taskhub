@@ -16,6 +16,7 @@ import { tasksRouter } from './routes/tasks.ts'
 import { attachmentsRouter } from './routes/attachments.ts'
 import { adminRouter } from './routes/admin.ts'
 import { analyticsRouter } from './routes/analytics.ts'
+import { logoRouter, logoUrl, serveLogo } from './routes/logo.ts'
 
 // Many cheap VPS hosts ship broken IPv6; prefer IPv4 when talking to Discord.
 dns.setDefaultResultOrder('ipv4first')
@@ -36,9 +37,12 @@ api.get('/meta', (_req, res) => {
     discordConfigured,
     devLogin: config.devLogin,
     needsSetup: count === 0,
+    logoUrl: logoUrl(),
     permissions: PERMISSIONS,
   })
 })
+
+api.get('/logo', serveLogo)
 
 api.use(authRouter)
 api.use(requireAuth)
@@ -54,6 +58,7 @@ api.use(tasksRouter)
 api.use(attachmentsRouter)
 api.use(adminRouter)
 api.use(analyticsRouter)
+api.use(logoRouter)
 
 app.use('/api', api)
 app.use('/api', (_req, _res, next) => next(new HttpError(404, 'Unknown endpoint')))
@@ -67,7 +72,9 @@ app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
   if (err instanceof HttpError) return res.status(err.status).json({ error: err.message })
   if (err instanceof SyntaxError && 'body' in err) return res.status(400).json({ error: 'Invalid JSON body' })
   if (err && typeof err === 'object' && 'type' in err && err.type === 'entity.too.large') {
-    return res.status(413).json({ error: `File is larger than ${config.maxUploadMb} MB` })
+    // Image uploads and the logo have different limits; body-parser reports the one that applied.
+    const limit = 'limit' in err && typeof err.limit === 'number' ? Math.round(err.limit / 1024 / 1024) : config.maxUploadMb
+    return res.status(413).json({ error: `File is larger than ${limit} MB` })
   }
   console.error(err)
   res.status(500).json({ error: 'Internal server error' })

@@ -2,7 +2,7 @@ import { Router, type Request } from 'express'
 import type { SQLInputValue } from 'node:sqlite'
 import { db, transaction } from '../db.ts'
 import { audit, diff, serializeAudit, type AuditRow } from '../audit.ts'
-import { badRequest, can, forbidden, idParam, me, notFound, oneOf, optionalId, requirePermission, text } from '../http.ts'
+import { badRequest, can, canSeeCategory, forbidden, idParam, me, notFound, oneOf, optionalId, requirePermission, text, visibilityFilter } from '../http.ts'
 import { listAttachments, removeFiles } from './attachments.ts'
 import { canCreateIn } from '../permissions.ts'
 
@@ -63,7 +63,8 @@ export const getTask = (id: number) => db.prepare(`${TASK_SELECT} WHERE tasks.id
 
 export function requireTask(req: Request) {
   const task = getTask(idParam(req))
-  if (!task) throw notFound('Task not found')
+  // Tasks in categories the user cannot see behave as if they did not exist.
+  if (!task || !canSeeCategory(req, task.category_id)) throw notFound('Task not found')
   return task
 }
 
@@ -127,6 +128,11 @@ tasksRouter.get('/tasks', (req, res) => {
   const { categoryId, assignee, status, q, archived } = req.query
   const showArchived = archived === '1'
   where.push(showArchived ? 'tasks.archived_at IS NOT NULL' : 'tasks.archived_at IS NULL')
+  const visible = visibilityFilter(req, 'tasks.category_id')
+  if (visible.sql) {
+    where.push(visible.sql.replace(/^ AND /, ''))
+    params.push(...visible.params)
+  }
 
   if (typeof categoryId === 'string' && categoryId) {
     where.push('tasks.category_id = ?')
@@ -190,13 +196,14 @@ tasksRouter.post('/tasks', requirePermission('create_tasks'), (req, res) => {
 
   if (parentId) {
     const parent = getTask(parentId)
-    if (!parent) throw badRequest('Parent task does not exist')
+    if (!parent || !canSeeCategory(req, parent.category_id)) throw badRequest('Parent task does not exist')
     if (parent.parent_id) throw badRequest('Subtasks cannot have their own subtasks')
     if (parent.archived_at) throw badRequest('Restore the parent task before adding subtasks')
     categoryId = parent.category_id
   } else {
     categoryId = optionalId(req.body?.categoryId, 'Category')
     if (!categoryId) throw badRequest('Category is required')
+    if (!canSeeCategory(req, categoryId)) throw badRequest('Category does not exist')
   }
   assertActiveCategory(categoryId)
   if (!canCreateIn(actor.permissions, actor.createCategoryIds, categoryId)) throw forbidden('Your role cannot create tasks in this category')
@@ -247,6 +254,7 @@ tasksRouter.patch('/tasks/:id', (req, res) => {
     if (!categoryId) throw badRequest('Category is required')
     if (categoryId !== task.category_id) {
       if (task.parent_id) throw badRequest('Subtasks follow their parent. Move the parent task instead.')
+      if (!canSeeCategory(req, categoryId)) throw badRequest('Category does not exist')
       assertActiveCategory(categoryId)
       // Moving a task somewhere is as good as creating it there, unless you may edit any task anyway.
       if (!can(req, 'edit_tasks') && !canCreateIn(actor.permissions, actor.createCategoryIds, categoryId)) {

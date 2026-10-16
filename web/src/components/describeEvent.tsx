@@ -65,6 +65,11 @@ export function describeEvent(e: AuditEvent, ctx: EventContext, inTask = false):
       const parts: ReactNode[] = []
       if (changes.name) parts.push(<>renamed the role <B>{String(changes.name[0])}</B> to {name}</>)
       if (changes.color) parts.push(<>changed the color of {name}</>)
+      if (changes.view_categories) {
+        const limit = changes.view_categories[1] as number[] | null
+        const names = (limit ?? []).map((id) => ctx.categoryById.get(id)?.name ?? 'a hidden category')
+        parts.push(limit === null ? <>let {name} see every category</> : <>let {name} see only {names.length ? names.join(', ') : 'no category'}</>)
+      }
       if (changes.create_categories) {
         const limit = changes.create_categories[1] as number[] | null
         const names = (limit ?? []).map((id) => ctx.categoryById.get(id)?.name ?? 'a deleted category')
@@ -137,6 +142,7 @@ export function describeEvent(e: AuditEvent, ctx: EventContext, inTask = false):
     }
 
     case 'settings.updated': {
+      if (changes.logo) return changes.logo[1] ? 'uploaded a new logo' : 'removed the logo'
       const labels: Record<string, string> = { instanceName: 'instance name', registration: 'registration mode', defaultRoleId: 'default role' }
       return <>changed {Object.keys(changes).map((k) => labels[k] ?? k).join(', ')}</>
     }

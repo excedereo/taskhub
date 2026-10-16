@@ -5,7 +5,7 @@ import express, { Router } from 'express'
 import { config } from '../config.ts'
 import { db, transaction } from '../db.ts'
 import { audit } from '../audit.ts'
-import { badRequest, forbidden, idParam, me, notFound } from '../http.ts'
+import { badRequest, canSeeCategory, forbidden, idParam, me, notFound } from '../http.ts'
 import { canEdit, canWork, requireTask, getTask } from './tasks.ts'
 
 export const attachmentsRouter = Router()
@@ -53,7 +53,7 @@ export function removeFiles(files: string[]) {
  * Detects the image type from its first bytes instead of trusting the client.
  * SVG is deliberately not accepted: it can carry scripts.
  */
-function sniffImage(buf: Buffer): { mime: string; ext: string } | null {
+export function sniffImage(buf: Buffer): { mime: string; ext: string } | null {
   const starts = (...bytes: number[]) => bytes.every((b, i) => buf[i] === b)
   if (starts(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)) return { mime: 'image/png', ext: 'png' }
   if (starts(0xff, 0xd8, 0xff)) return { mime: 'image/jpeg', ext: 'jpg' }
@@ -109,7 +109,7 @@ attachmentsRouter.post(
 
 attachmentsRouter.get('/attachments/:id', (req, res, next) => {
   const row = db.prepare('SELECT * FROM attachments WHERE id = ?').get(idParam(req)) as AttachmentRow | undefined
-  if (!row) throw notFound('Image not found')
+  if (!row || !canSeeCategory(req, getTask(row.task_id)?.category_id ?? 0)) throw notFound('Image not found')
 
   const disposition = req.query.download ? 'attachment' : 'inline'
   res.sendFile(path.join(config.uploadsDir, row.file), {
@@ -129,8 +129,8 @@ attachmentsRouter.get('/attachments/:id', (req, res, next) => {
 attachmentsRouter.delete('/attachments/:id', (req, res) => {
   const actor = me(req)
   const row = db.prepare('SELECT * FROM attachments WHERE id = ?').get(idParam(req)) as AttachmentRow | undefined
-  if (!row) throw notFound('Image not found')
-  const task = getTask(row.task_id)!
+  const task = row && getTask(row.task_id)
+  if (!row || !task || !canSeeCategory(req, task.category_id)) throw notFound('Image not found')
   if (row.uploader_id !== actor.id && !canEdit(req, task)) throw forbidden('You can only remove images you added')
 
   transaction(() => {

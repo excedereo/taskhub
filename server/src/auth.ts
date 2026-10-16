@@ -18,6 +18,8 @@ export type SessionUser = {
   permissions: string[]
   /** Categories this user may create tasks in; null means all of them. */
   createCategoryIds: number[] | null
+  /** Categories this user can see; null means all of them. */
+  viewCategoryIds: number[] | null
 }
 
 type SessionRow = {
@@ -31,6 +33,7 @@ type SessionRow = {
   role_color: string | null
   permissions: string
   create_categories: string | null
+  view_categories: string | null
 }
 
 // Only a hash of the token is stored, so a leaked database cannot be used to hijack sessions.
@@ -41,7 +44,7 @@ export function sessionMiddleware(req: Request, _res: Response, next: NextFuncti
   if (typeof token === 'string' && token) {
     const row = db.prepare(`
       SELECT u.id, u.discord_id, u.username, u.display_name, u.avatar, u.role_id,
-             r.name AS role_name, r.color AS role_color, r.permissions, r.create_categories
+             r.name AS role_name, r.color AS role_color, r.permissions, r.create_categories, r.view_categories
       FROM sessions s
       JOIN users u ON u.id = s.user_id
       JOIN roles r ON r.id = u.role_id
@@ -60,6 +63,7 @@ export function sessionMiddleware(req: Request, _res: Response, next: NextFuncti
         roleColor: row.role_color,
         permissions: JSON.parse(row.permissions),
         createCategoryIds: row.create_categories === null ? null : JSON.parse(row.create_categories),
+        viewCategoryIds: row.view_categories === null ? null : JSON.parse(row.view_categories),
       }
     }
   }

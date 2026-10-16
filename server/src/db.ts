@@ -132,6 +132,10 @@ const migrations: string[] = [
   -- JSON list of category ids a role may create tasks in; NULL means every category.
   ALTER TABLE roles ADD COLUMN create_categories TEXT;
   `,
+  `
+  -- JSON list of category ids a role can see at all; NULL means every category.
+  ALTER TABLE roles ADD COLUMN view_categories TEXT;
+  `,
 ]
 
 const current = (db.prepare('PRAGMA user_version').get() as { user_version: number }).user_version

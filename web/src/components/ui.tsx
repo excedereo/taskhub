@@ -69,6 +69,15 @@ export function RoleBadge({ role }: { role: Pick<Role, 'name' | 'color'> | undef
   )
 }
 
+/** The instance mark: the uploaded logo, or the first letter of the name. */
+export function BrandMark({ name, logoUrl, large }: { name: string; logoUrl: string | null; large?: boolean }) {
+  return (
+    <span className={large ? 'brand-mark brand-mark-lg' : 'brand-mark'} aria-hidden>
+      {logoUrl ? <img src={logoUrl} alt="" /> : name.slice(0, 1).toUpperCase()}
+    </span>
+  )
+}
+
 export const roleOptions = (roles: Role[]) =>
   roles.map((r) => ({ value: r.id, label: r.name, icon: <span className="dot" style={{ background: r.color ?? 'var(--text-faint)' }} /> }))
 

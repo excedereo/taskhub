@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Archive, ChartColumn, Hash, Inbox, Layers, LogOut, PanelLeftClose, PanelLeftOpen, Plus, ScrollText, Settings, Shield, Users } from 'lucide-react'
 import { useData, useMe, useSession } from '../store.tsx'
 import { cx, displayName } from '../util.ts'
-import { Avatar } from './ui.tsx'
+import { Avatar, BrandMark } from './ui.tsx'
 import { CategoryModal } from './CategoryModal.tsx'
 
 function NavItem({ to, icon, label, active, count, collapsed }: { to: string; icon: ReactNode; label: string; active: boolean; count?: number; collapsed: boolean }) {
@@ -32,9 +32,7 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
     <aside className="sidebar">
       <div className="sidebar-head">
         <Link to="/tasks" className="brand" title={meta?.instanceName}>
-          <span className="brand-mark" aria-hidden>
-            {(meta?.instanceName ?? 'T').slice(0, 1).toUpperCase()}
-          </span>
+          <BrandMark name={meta?.instanceName ?? 'T'} logoUrl={meta?.logoUrl ?? null} />
           <span className="brand-name">{meta?.instanceName}</span>
         </Link>
         <button className="icon-btn collapse-btn" onClick={onToggle} aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} title={collapsed ? 'Expand' : 'Collapse'}>
@@ -65,15 +63,18 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
           {active.length === 0 && !collapsed && <p className="nav-empty">No categories yet</p>}
         </div>
 
-        <div className="nav-group">
-          <div className="nav-heading">
-            <span>Team</span>
+        {/* Admin pages only show up for people who can actually use them. */}
+        {(can('manage_users') || can('manage_roles') || can('view_audit') || can('manage_settings')) && (
+          <div className="nav-group">
+            <div className="nav-heading">
+              <span>Team</span>
+            </div>
+            {can('manage_users') && <NavItem to="/users" icon={<Users size={16} />} label="Users" active={pathname === '/users'} collapsed={collapsed} />}
+            {can('manage_roles') && <NavItem to="/roles" icon={<Shield size={16} />} label="Roles" active={pathname === '/roles'} collapsed={collapsed} />}
+            {can('view_audit') && <NavItem to="/audit" icon={<ScrollText size={16} />} label="Audit log" active={pathname === '/audit'} collapsed={collapsed} />}
+            {can('manage_settings') && <NavItem to="/settings" icon={<Settings size={16} />} label="Settings" active={pathname === '/settings'} collapsed={collapsed} />}
           </div>
-          <NavItem to="/users" icon={<Users size={16} />} label="Users" active={pathname === '/users'} collapsed={collapsed} />
-          <NavItem to="/roles" icon={<Shield size={16} />} label="Roles" active={pathname === '/roles'} collapsed={collapsed} />
-          {can('view_audit') && <NavItem to="/audit" icon={<ScrollText size={16} />} label="Audit log" active={pathname === '/audit'} collapsed={collapsed} />}
-          {can('manage_settings') && <NavItem to="/settings" icon={<Settings size={16} />} label="Settings" active={pathname === '/settings'} collapsed={collapsed} />}
-        </div>
+        )}
       </nav>
 
       <div className="sidebar-foot">

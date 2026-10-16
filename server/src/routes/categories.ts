@@ -1,7 +1,8 @@
 import { Router } from 'express'
 import { db, transaction } from '../db.ts'
 import { audit, diff } from '../audit.ts'
-import { badRequest, can, forbidden, idParam, me, notFound, requirePermission, text } from '../http.ts'
+import { badRequest, can, canSeeCategory, forbidden, idParam, me, notFound, requirePermission, text } from '../http.ts'
+import type { Request } from 'express'
 
 export const categoriesRouter = Router()
 
@@ -38,9 +39,16 @@ const CATEGORY_SELECT = `
 
 const getCategory = (id: number) => db.prepare(`${CATEGORY_SELECT} WHERE c.id = ?`).get(id) as CategoryRow | undefined
 
-categoriesRouter.get('/categories', (_req, res) => {
+/** The category from the URL, treated as missing when the user is not allowed to see it. */
+function requireCategory(req: Request) {
+  const category = getCategory(idParam(req))
+  if (!category || !canSeeCategory(req, category.id)) throw notFound('Category not found')
+  return category
+}
+
+categoriesRouter.get('/categories', (req, res) => {
   const rows = db.prepare(`${CATEGORY_SELECT} ORDER BY c.archived, c.name COLLATE NOCASE`).all() as CategoryRow[]
-  res.json(rows.map(serializeCategory))
+  res.json(rows.filter((c) => canSeeCategory(req, c.id)).map(serializeCategory))
 })
 
 categoriesRouter.post('/categories', requirePermission('manage_categories'), (req, res) => {
@@ -60,8 +68,7 @@ categoriesRouter.post('/categories', requirePermission('manage_categories'), (re
 
 categoriesRouter.patch('/categories/:id', requirePermission('manage_categories'), (req, res) => {
   const actor = me(req)
-  const category = getCategory(idParam(req))
-  if (!category) throw notFound('Category not found')
+  const category = requireCategory(req)
 
   const next: { name?: string; description?: string; archived?: number } = {}
   if (req.body?.name !== undefined) next.name = text(req.body.name, 'Name', { min: 1, max: 48 })
@@ -87,7 +94,7 @@ const listSections = (categoryId: number) =>
   (db.prepare('SELECT * FROM sections WHERE category_id = ? ORDER BY position').all(categoryId) as SectionRow[]).map(serializeSection)
 
 categoriesRouter.get('/categories/:id/sections', (req, res) => {
-  res.json(listSections(idParam(req)))
+  res.json(listSections(requireCategory(req).id))
 })
 
 type LayoutItem = { type: 'section'; id?: number; title: string } | { type: 'task'; id: number; subtasks?: number[] }
@@ -100,8 +107,7 @@ type LayoutItem = { type: 'section'; id?: number; title: string } | { type: 'tas
 categoriesRouter.put('/categories/:id/layout', (req, res) => {
   const actor = me(req)
   if (!can(req, 'manage_categories') && !can(req, 'edit_tasks')) throw forbidden('You cannot rearrange categories')
-  const category = getCategory(idParam(req))
-  if (!category) throw notFound('Category not found')
+  const category = requireCategory(req)
 
   const items: unknown = req.body?.items
   if (!Array.isArray(items) || items.length > 5000) throw badRequest('items must be a list')
@@ -165,8 +171,7 @@ categoriesRouter.put('/categories/:id/layout', (req, res) => {
 categoriesRouter.post('/categories/:id/archive-done', (req, res) => {
   const actor = me(req)
   if (!can(req, 'manage_categories') && !can(req, 'edit_tasks')) throw forbidden()
-  const category = getCategory(idParam(req))
-  if (!category) throw notFound('Category not found')
+  const category = requireCategory(req)
 
   const archived = transaction(() => {
     const now = Date.now()
@@ -180,8 +185,7 @@ categoriesRouter.post('/categories/:id/archive-done', (req, res) => {
 
 categoriesRouter.delete('/categories/:id', requirePermission('manage_categories'), (req, res) => {
   const actor = me(req)
-  const category = getCategory(idParam(req))
-  if (!category) throw notFound('Category not found')
+  const category = requireCategory(req)
   if (category.total_count > 0) throw badRequest('Only empty categories can be deleted. Archive it instead.')
 
   transaction(() => {

@@ -3,6 +3,7 @@ import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { api } from '../api.ts'
 import { useSession } from '../store.tsx'
 import { useToast } from '../components/Toast.tsx'
+import { BrandMark } from '../components/ui.tsx'
 
 const ERRORS: Record<string, string> = {
   not_invited: 'Your Discord account has not been added to this team yet. Ask an admin to add you by your Discord user ID.',
@@ -47,9 +48,7 @@ export function LoginPage() {
   return (
     <div className="login">
       <div className="login-card">
-        <span className="brand-mark brand-mark-lg" aria-hidden>
-          {meta.instanceName.slice(0, 1).toUpperCase()}
-        </span>
+        <BrandMark name={meta.instanceName} logoUrl={meta.logoUrl} large />
         <h1>Sign in to {meta.instanceName}</h1>
         <p className="muted">
           {meta.needsSetup ? 'This instance is brand new. The first person to sign in becomes its owner.' : 'Use the Discord account your team added you with.'}

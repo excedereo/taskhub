@@ -30,6 +30,25 @@ export function can(req: Request, perm: Permission) {
   return Boolean(req.user && hasPermission(req.user.permissions, perm))
 }
 
+/** Category ids the user may see, or null for all. Administrators always see everything. */
+export function visibleCategories(req: Request): number[] | null {
+  const user = me(req)
+  return user.permissions.includes('admin') ? null : user.viewCategoryIds
+}
+
+export function canSeeCategory(req: Request, categoryId: number) {
+  const ids = visibleCategories(req)
+  return ids === null || ids.includes(categoryId)
+}
+
+/** `AND <column> IN (...)` for the user's visible categories, or nothing when unrestricted. */
+export function visibilityFilter(req: Request, column: string): { sql: string; params: number[] } {
+  const ids = visibleCategories(req)
+  if (ids === null) return { sql: '', params: [] }
+  if (!ids.length) return { sql: ' AND 0', params: [] }
+  return { sql: ` AND ${column} IN (${ids.map(() => '?').join(',')})`, params: ids }
+}
+
 export function me(req: Request) {
   if (!req.user) throw new HttpError(401, 'Not signed in')
   return req.user

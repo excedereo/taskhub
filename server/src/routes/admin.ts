@@ -2,7 +2,7 @@ import { Router } from 'express'
 import type { SQLInputValue } from 'node:sqlite'
 import { db, getSetting, setSetting, transaction } from '../db.ts'
 import { audit, serializeAudit, type AuditRow } from '../audit.ts'
-import { badRequest, me, oneOf, requirePermission, text } from '../http.ts'
+import { badRequest, me, oneOf, requirePermission, text, visibleCategories } from '../http.ts'
 
 export const adminRouter = Router()
 
@@ -22,6 +22,13 @@ adminRouter.get('/audit', requirePermission('view_audit'), (req, res) => {
   if (typeof before === 'string' && /^\d+$/.test(before)) {
     where.push('id < ?')
     params.push(Number(before))
+  }
+  // People limited to some categories do not see the history of the others, including deleted tasks.
+  const visible = visibleCategories(req)
+  if (visible !== null) {
+    const list = visible.length ? visible.join(',') : '0'
+    where.push(`NOT (entity_type = 'category' AND entity_id NOT IN (${list}))`)
+    where.push(`NOT (entity_type = 'task' AND COALESCE((SELECT t.category_id FROM tasks t WHERE t.id = audit_log.entity_id), json_extract(data, '$.categoryId'), 0) NOT IN (${list}))`)
   }
   const limit = Math.min(Number(req.query.limit) || 50, 200)
 

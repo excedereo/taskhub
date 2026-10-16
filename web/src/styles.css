@@ -973,3 +973,14 @@ select.input { padding-right: 6px; }
 .chip input { display: none; }
 .chip:hover { border-color: var(--border-strong); }
 .chip.active { border-color: var(--text); background: var(--hover); color: var(--text); }
+.perm-limit-box { padding-top: 12px; }
+.perm-limit-box .perm-limit { padding-left: 14px; }
+
+/* Settings: logo */
+.logo-field { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
+.brand-mark { overflow: hidden; }
+.brand-mark img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.btn-disabled { opacity: 0.45; pointer-events: none; }
+@media (max-width: 720px) {
+  .logo-field { flex-wrap: wrap; }
+}
