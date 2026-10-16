@@ -1,0 +1,41 @@
+import { StrictMode } from 'react'
+import { createRoot } from 'react-dom/client'
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { DataProvider, SessionProvider } from './store.tsx'
+import { ToastProvider } from './components/Toast.tsx'
+import { Layout } from './components/Layout.tsx'
+import { LoginPage } from './pages/Login.tsx'
+import { TasksPage } from './pages/Tasks.tsx'
+import { UsersPage } from './pages/Users.tsx'
+import { RolesPage } from './pages/Roles.tsx'
+import { AuditPage } from './pages/Audit.tsx'
+import { SettingsPage } from './pages/Settings.tsx'
+import { ProfilePage } from './pages/Profile.tsx'
+import './styles.css'
+
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <BrowserRouter>
+      <ToastProvider>
+        <SessionProvider>
+          <DataProvider>
+            <Routes>
+              <Route path="/login" element={<LoginPage />} />
+              <Route element={<Layout />}>
+                <Route index element={<Navigate to="/tasks" replace />} />
+                <Route path="/tasks" element={<TasksPage />} />
+                <Route path="/tasks/c/:categoryId" element={<TasksPage />} />
+                <Route path="/users" element={<UsersPage />} />
+                <Route path="/roles" element={<RolesPage />} />
+                <Route path="/audit" element={<AuditPage />} />
+                <Route path="/settings" element={<SettingsPage />} />
+                <Route path="/profile" element={<ProfilePage />} />
+                <Route path="*" element={<Navigate to="/tasks" replace />} />
+              </Route>
+            </Routes>
+          </DataProvider>
+        </SessionProvider>
+      </ToastProvider>
+    </BrowserRouter>
+  </StrictMode>,
+)

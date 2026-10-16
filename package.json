@@ -1,0 +1,23 @@
+{
+  "name": "taskhub",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Self-hosted task tracker for small dev teams with Discord sign-in, roles and a full audit log",
+  "license": "MIT",
+  "workspaces": [
+    "server",
+    "web"
+  ],
+  "scripts": {
+    "dev": "concurrently -n server,web -c blue,green \"npm:dev -w server\" \"npm:dev -w web\"",
+    "build": "npm run build -w web",
+    "start": "npm start -w server",
+    "typecheck": "npm run typecheck -w server && npm run typecheck -w web"
+  },
+  "engines": {
+    "node": ">=22.18"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.6"
+  }
+}

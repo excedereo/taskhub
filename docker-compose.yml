@@ -1,0 +1,14 @@
+services:
+  taskhub:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_PATH: /data/taskhub.db
+    ports:
+      - "3000:3000"
+    volumes:
+      - taskhub-data:/data
+
+volumes:
+  taskhub-data:
