@@ -40,6 +40,28 @@ export function covers(granted: readonly string[], requested: readonly string[])
   return granted.includes('admin') || requested.every((p) => granted.includes(p))
 }
 
+const shortDate = new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric' })
+
+/** Today in the viewer's time zone, as YYYY-MM-DD. */
+export function todayLocal() {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+/** How a due date reads next to a task: "Today", "In 2 days", "3d overdue" or just the date. */
+export function dueInfo(due: string | null, done: boolean): { text: string; tone: 'overdue' | 'soon' | 'later' | 'done'; title: string } | null {
+  if (!due) return null
+  const days = Math.round((Date.parse(`${due}T00:00:00Z`) - Date.parse(`${todayLocal()}T00:00:00Z`)) / 86400000)
+  const date = shortDate.format(new Date(`${due}T12:00:00Z`))
+  const title = `Due ${date}`
+  if (done) return { text: date, tone: 'done', title }
+  if (days < 0) return { text: `${-days}d overdue`, tone: 'overdue', title }
+  if (days === 0) return { text: 'Today', tone: 'soon', title }
+  if (days === 1) return { text: 'Tomorrow', tone: 'soon', title }
+  if (days <= 3) return { text: `In ${days} days`, tone: 'soon', title }
+  return { text: date, tone: 'later', title }
+}
+
 export function cx(...parts: (string | false | null | undefined)[]) {
   return parts.filter(Boolean).join(' ')
 }

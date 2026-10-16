@@ -85,6 +85,12 @@ export function describeEvent(e: AuditEvent, ctx: EventContext, inTask = false):
       return joinParts(parts)
     }
 
+    case 'label.created':
+      return <>created the label {name}</>
+    case 'label.updated':
+      return <>edited the label {name}</>
+    case 'label.deleted':
+      return <>deleted the label {name}</>
     case 'category.created':
       return <>created the category {name}</>
     case 'category.deleted':
@@ -137,6 +143,11 @@ export function describeEvent(e: AuditEvent, ctx: EventContext, inTask = false):
       if (changes.priority) parts.push(<>set priority{inTask ? '' : <> of{task}</>} to <B>{priorityLabel(changes.priority[1] as Priority)}</B></>)
       if (changes.title) parts.push(<>renamed{inTask ? ' the task' : <> <B>#{e.entityId} {String(changes.title[0])}</B></>} to <B>{String(changes.title[1])}</B></>)
       if (changes.description) parts.push(<>edited the description{inTask ? '' : <> of{task}</>}</>)
+      if (changes.due_date) {
+        const due = changes.due_date[1] as string | null
+        parts.push(due ? <>set the due date{inTask ? '' : <> of{task}</>} to <B>{due}</B></> : <>removed the due date{inTask ? '' : <> of{task}</>}</>)
+      }
+      if (changes.labels) parts.push(<>changed labels{inTask ? '' : <> of{task}</>}</>)
       if (changes.category_id) parts.push(<>moved{task || ' this task'} to {category(changes.category_id[1])}</>)
       return joinParts(parts)
     }

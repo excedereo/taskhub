@@ -9,6 +9,7 @@ import { Select } from './Select.tsx'
 import { AutoTextarea } from './AutoTextarea.tsx'
 import { Gallery, type GalleryItem } from './Gallery.tsx'
 import { useToast } from './Toast.tsx'
+import { LabelPicker } from './LabelPicker.tsx'
 
 type Draft = { key: string; file: File; url: string; width: number | null; height: number | null }
 let draftSeq = 0
@@ -24,6 +25,8 @@ export function NewTaskModal({ defaultCategoryId, onClose, onCreated }: { defaul
   const [description, setDescription] = useState('')
   const [priority, setPriority] = useState<Priority>('medium')
   const [assigneeId, setAssigneeId] = useState<number | null>(null)
+  const [dueDate, setDueDate] = useState('')
+  const [labelIds, setLabelIds] = useState<number[]>([])
   const [images, setImages] = useState<Draft[]>([])
   const [dragging, setDragging] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -64,7 +67,7 @@ export function NewTaskModal({ defaultCategoryId, onClose, onCreated }: { defaul
     e.preventDefault()
     setBusy(true)
     try {
-      const task = await api.post<Task>('/tasks', { categoryId, title, description, priority, assigneeId })
+      const task = await api.post<Task>('/tasks', { categoryId, title, description, priority, assigneeId, dueDate: dueDate || null, labelIds })
       // One at a time, so the images keep the order they were added in.
       let uploaded = 0
       for (const d of images) {
@@ -158,6 +161,15 @@ export function NewTaskModal({ defaultCategoryId, onClose, onCreated }: { defaul
               />
             </Field>
           )}
+        </div>
+        <div className="form-row">
+          <Field label="Due date">
+            <input type="date" className="input" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+          </Field>
+          <div className="field">
+            <span className="field-label">Labels</span>
+            <LabelPicker value={labelIds} onChange={setLabelIds} variant="default" />
+          </div>
         </div>
         <div className="field">
           <span className="field-label">Images</span>

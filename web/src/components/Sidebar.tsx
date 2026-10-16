@@ -64,7 +64,7 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
         </div>
 
         {/* Admin pages only show up for people who can actually use them. */}
-        {(can('manage_users') || can('manage_roles') || can('view_audit') || can('manage_settings')) && (
+        {(can('manage_users') || can('manage_roles') || can('view_audit') || can('manage_settings') || can('manage_categories')) && (
           <div className="nav-group">
             <div className="nav-heading">
               <span>Team</span>
@@ -72,7 +72,7 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
             {can('manage_users') && <NavItem to="/users" icon={<Users size={16} />} label="Users" active={pathname === '/users'} collapsed={collapsed} />}
             {can('manage_roles') && <NavItem to="/roles" icon={<Shield size={16} />} label="Roles" active={pathname === '/roles'} collapsed={collapsed} />}
             {can('view_audit') && <NavItem to="/audit" icon={<ScrollText size={16} />} label="Audit log" active={pathname === '/audit'} collapsed={collapsed} />}
-            {can('manage_settings') && <NavItem to="/workspace" icon={<Building2 size={16} />} label="Workspace settings" active={pathname === '/workspace'} collapsed={collapsed} />}
+            {(can('manage_settings') || can('manage_categories')) && <NavItem to="/workspace" icon={<Building2 size={16} />} label="Workspace settings" active={pathname === '/workspace'} collapsed={collapsed} />}
           </div>
         )}
       </nav>

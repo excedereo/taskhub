@@ -136,6 +136,23 @@ const migrations: string[] = [
   -- JSON list of category ids a role can see at all; NULL means every category.
   ALTER TABLE roles ADD COLUMN view_categories TEXT;
   `,
+  `
+  CREATE TABLE labels (
+    id         INTEGER PRIMARY KEY,
+    name       TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    color      TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+  );
+  CREATE TABLE task_labels (
+    task_id  INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    label_id INTEGER NOT NULL REFERENCES labels(id) ON DELETE CASCADE,
+    PRIMARY KEY (task_id, label_id)
+  );
+  CREATE INDEX task_labels_label ON task_labels(label_id);
+  -- A calendar day (YYYY-MM-DD); the deadline is the end of that day.
+  ALTER TABLE tasks ADD COLUMN due_date TEXT;
+  CREATE INDEX tasks_due ON tasks(due_date);
+  `,
 ]
 
 const current = (db.prepare('PRAGMA user_version').get() as { user_version: number }).user_version

@@ -1,6 +1,6 @@
 import { db } from './db.ts'
 
-export type EntityType = 'user' | 'role' | 'category' | 'task' | 'settings'
+export type EntityType = 'user' | 'role' | 'category' | 'task' | 'settings' | 'label'
 
 export function audit(actorId: number | null, entityType: EntityType, entityId: number | null, action: string, data: Record<string, unknown> = {}) {
   db.prepare('INSERT INTO audit_log (actor_id, entity_type, entity_id, action, data, created_at) VALUES (?, ?, ?, ?, ?, ?)')

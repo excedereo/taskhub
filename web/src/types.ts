@@ -79,10 +79,20 @@ export type Task = {
   closedAt: number | null
   attachmentCount: number
   archivedAt: number | null
+  /** Calendar day YYYY-MM-DD; the deadline is the end of that day. */
+  dueDate: string | null
+  labelIds: number[]
   parentId: number | null
   position: number
   subtaskCount: number
   subtaskDone: number
+}
+
+export type Label = {
+  id: number
+  name: string
+  color: string
+  taskCount: number
 }
 
 export type Section = {

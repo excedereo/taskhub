@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { api, UNAUTHORIZED_EVENT } from './api.ts'
-import type { Category, Me, Meta, Role, User } from './types.ts'
+import type { Category, Label, Me, Meta, Role, User } from './types.ts'
 
 type Session = {
   meta: Meta | null
@@ -14,6 +14,9 @@ type Data = {
   users: User[]
   roles: Role[]
   categories: Category[]
+  labels: Label[]
+  labelById: Map<number, Label>
+  reloadLabels: () => Promise<void>
   userById: Map<number, User>
   roleById: Map<number, Role>
   categoryById: Map<number, Category>
@@ -70,17 +73,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [users, setUsers] = useState<User[]>([])
   const [roles, setRoles] = useState<Role[]>([])
   const [categories, setCategories] = useState<Category[]>([])
+  const [labels, setLabels] = useState<Label[]>([])
 
   const reloadUsers = useCallback(async () => setUsers(await api.get<User[]>('/users')), [])
   const reloadRoles = useCallback(async () => setRoles(await api.get<Role[]>('/roles')), [])
   const reloadCategories = useCallback(async () => setCategories(await api.get<Category[]>('/categories')), [])
+  const reloadLabels = useCallback(async () => setLabels(await api.get<Label[]>('/labels')), [])
 
   useEffect(() => {
     if (!me) return
     reloadUsers()
     reloadRoles()
     reloadCategories()
-  }, [me, reloadUsers, reloadRoles, reloadCategories])
+    reloadLabels()
+  }, [me, reloadUsers, reloadRoles, reloadCategories, reloadLabels])
 
   const can = useCallback(
     (perm: string) => Boolean(me && (me.permissions.includes('admin') || me.permissions.includes(perm))),
@@ -98,6 +104,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       users,
       roles,
       categories,
+      labels,
+      labelById: new Map(labels.map((l) => [l.id, l])),
+      reloadLabels,
       userById: new Map(users.map((u) => [u.id, u])),
       roleById: new Map(roles.map((r) => [r.id, r])),
       categoryById: new Map(categories.map((c) => [c.id, c])),
@@ -107,7 +116,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       can,
       canCreateIn,
     }),
-    [users, roles, categories, reloadUsers, reloadRoles, reloadCategories, can, canCreateIn],
+    [users, roles, categories, labels, reloadUsers, reloadRoles, reloadCategories, reloadLabels, can, canCreateIn],
   )
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>
 }

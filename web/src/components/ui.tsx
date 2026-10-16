@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { X } from 'lucide-react'
-import type { Me, Priority, Role, Status, User } from '../types.ts'
+import type { Label, Me, Priority, Role, Status, User } from '../types.ts'
 import { priorityLabel, statusLabel } from '../types.ts'
-import { avatarUrl, cx, displayName } from '../util.ts'
+import { avatarUrl, cx, displayName, dueInfo } from '../util.ts'
+import { CalendarClock } from 'lucide-react'
 
 export function Avatar({ user, size = 24 }: { user: User | Me | undefined | null; size?: number }) {
   const [broken, setBroken] = useState(false)
@@ -74,6 +75,24 @@ export function BrandMark({ name, logoUrl, large }: { name: string; logoUrl: str
   return (
     <span className={large ? 'brand-mark brand-mark-lg' : 'brand-mark'} aria-hidden>
       {logoUrl ? <img src={logoUrl} alt="" /> : name.slice(0, 1).toUpperCase()}
+    </span>
+  )
+}
+
+export function LabelChip({ label }: { label: Pick<Label, 'name' | 'color'> }) {
+  return (
+    <span className="label-chip" style={{ ['--label' as string]: label.color }}>
+      {label.name}
+    </span>
+  )
+}
+
+export function DueBadge({ due, done }: { due: string | null; done: boolean }) {
+  const info = dueInfo(due, done)
+  if (!info) return null
+  return (
+    <span className={`due due-${info.tone}`} title={info.title}>
+      <CalendarClock size={12} /> {info.text}
     </span>
   )
 }

@@ -16,6 +16,7 @@ import { tasksRouter } from './routes/tasks.ts'
 import { attachmentsRouter } from './routes/attachments.ts'
 import { adminRouter } from './routes/admin.ts'
 import { analyticsRouter } from './routes/analytics.ts'
+import { labelsRouter } from './routes/labels.ts'
 import { logoRouter, logoUrl, serveLogo } from './routes/logo.ts'
 
 // Many cheap VPS hosts ship broken IPv6; prefer IPv4 when talking to Discord.
@@ -58,6 +59,7 @@ api.use(tasksRouter)
 api.use(attachmentsRouter)
 api.use(adminRouter)
 api.use(analyticsRouter)
+api.use(labelsRouter)
 api.use(logoRouter)
 
 app.use('/api', api)

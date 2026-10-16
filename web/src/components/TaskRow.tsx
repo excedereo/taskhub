@@ -2,7 +2,7 @@ import { CornerDownRight, Image, ListChecks } from 'lucide-react'
 import { useData } from '../store.tsx'
 import type { Task } from '../types.ts'
 import { cx, formatDate, timeAgo } from '../util.ts'
-import { Avatar, PriorityIcon, StatusIcon } from './ui.tsx'
+import { Avatar, DueBadge, LabelChip, PriorityIcon, StatusIcon } from './ui.tsx'
 
 type Props = {
   task: Task
@@ -17,7 +17,8 @@ type Props = {
 }
 
 export function TaskRow({ task: t, parent, showCategory, nested, selected, canTake, onOpen, onTake }: Props) {
-  const { userById, categoryById } = useData()
+  const { userById, categoryById, labelById } = useData()
+  const labels = t.labelIds.map((id) => labelById.get(id)).filter((l) => l !== undefined)
   const assignee = t.assigneeId ? userById.get(t.assigneeId) : null
 
   return (
@@ -46,6 +47,15 @@ export function TaskRow({ task: t, parent, showCategory, nested, selected, canTa
           <Image size={13} /> {t.attachmentCount}
         </span>
       )}
+      {labels.length > 0 && (
+        <span className="task-labels">
+          {labels.slice(0, 3).map((l) => (
+            <LabelChip key={l.id} label={l} />
+          ))}
+          {labels.length > 3 && <span className="muted small">+{labels.length - 3}</span>}
+        </span>
+      )}
+      <DueBadge due={t.dueDate} done={t.status === 'done'} />
       {showCategory && <span className="badge task-category">{categoryById.get(t.categoryId)?.name}</span>}
       <span className="task-time muted small" title={formatDate(t.updatedAt)}>
         {timeAgo(t.updatedAt)}

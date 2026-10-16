@@ -1248,3 +1248,54 @@ body.dragging * { cursor: grabbing !important; user-select: none; }
 
 :root[data-theme='pink'] .page-header h1 { display: flex; align-items: center; }
 .form .segmented { align-self: flex-start; }
+
+/* ---------- Labels and due dates ---------- */
+
+.label-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 20px;
+  padding: 0 8px 0 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--label) 14%, transparent);
+  color: color-mix(in srgb, var(--label) 75%, var(--text));
+  font-size: 12px;
+  white-space: nowrap;
+}
+.label-chip::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--label); }
+.task-labels { display: inline-flex; align-items: center; gap: 4px; flex-shrink: 1; min-width: 0; overflow: hidden; }
+.label-trigger { height: auto; min-height: 30px; padding-top: 4px; padding-bottom: 4px; }
+.label-row { display: flex; flex-wrap: wrap; gap: 4px; }
+.select-placeholder { display: inline-flex; align-items: center; gap: 6px; }
+
+.due {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  height: 20px;
+  padding: 0 7px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.due-later,
+.due-done { color: var(--text-muted); }
+.due-soon { background: color-mix(in srgb, var(--status-in_progress) 15%, transparent); color: var(--status-in_progress); }
+.due-overdue { background: var(--danger-bg); color: var(--danger); font-weight: 500; }
+
+.input-date { width: auto; height: 30px; padding: 0 8px; }
+
+.labels-card { margin-top: 16px; }
+.label-admin { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.label-admin li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto auto; align-items: center; gap: 12px; }
+.swatch-sm { width: 16px; height: 16px; }
+.input-inline { height: 30px; }
+@media (max-width: 720px) {
+  .label-admin li { grid-template-columns: 1fr auto; }
+  .label-admin .swatches,
+  .label-admin .input-inline { grid-column: 1 / -1; }
+  .task-labels { display: none; }
+}

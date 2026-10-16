@@ -4,7 +4,8 @@ import { api, imageFiles, uploadImage } from '../api.ts'
 import { useData, useMe, useSession } from '../store.tsx'
 import { PRIORITIES, STATUSES, type Attachment, type AuditEvent, type Task } from '../types.ts'
 import { cx, displayName, formatDate, timeAgo } from '../util.ts'
-import { Avatar, ConfirmButton, PriorityIcon, StatusIcon, UserChip } from './ui.tsx'
+import { Avatar, ConfirmButton, DueBadge, PriorityIcon, StatusIcon, UserChip } from './ui.tsx'
+import { LabelPicker } from './LabelPicker.tsx'
 import { Select } from './Select.tsx'
 import { AutoTextarea } from './AutoTextarea.tsx'
 import { Gallery, type GalleryItem } from './Gallery.tsx'
@@ -148,7 +149,7 @@ export function TaskPanel({ taskId, onClose, onOpenTask, onChanged, onDeleted }:
     }
   }
 
-  const patch = (body: Partial<Pick<Task, 'title' | 'description' | 'status' | 'priority' | 'categoryId'>>) => mutate(() => api.patch(`/tasks/${task.id}`, body))
+  const patch = (body: Partial<Pick<Task, 'title' | 'description' | 'status' | 'priority' | 'categoryId' | 'dueDate' | 'labelIds'>>) => mutate(() => api.patch(`/tasks/${task.id}`, body))
   const assign = (userId: number | null) => mutate(() => api.post(`/tasks/${task.id}/assign`, { userId }))
   const take = () => mutate(() => api.post(`/tasks/${task.id}/take`))
   const removeImage = (item: GalleryItem) => mutate(() => api.del(`/attachments/${item.key.slice(1)}`))
@@ -334,6 +335,28 @@ export function TaskPanel({ taskId, onClose, onOpenTask, onChanged, onDeleted }:
                   .filter((c) => c.id === task.categoryId || (!c.archived && (can('edit_tasks') || canCreateIn(c.id))))
                   .map((c) => ({ value: c.id, label: c.name, icon: <Hash size={14} className="muted" /> }))}
               />
+            </dd>
+
+            <dt>Due</dt>
+            <dd className="row gap-xs">
+              {canEdit ? (
+                <>
+                  <input type="date" className="input input-date" value={task.dueDate ?? ''} onChange={(e) => patch({ dueDate: e.target.value || null })} aria-label="Due date" />
+                  {task.dueDate && (
+                    <button className="icon-btn icon-btn-sm" onClick={() => patch({ dueDate: null })} aria-label="Clear due date" title="Clear due date">
+                      <X size={14} />
+                    </button>
+                  )}
+                </>
+              ) : !task.dueDate ? (
+                <span className="muted">None</span>
+              ) : null}
+              <DueBadge due={task.dueDate} done={task.status === 'done'} />
+            </dd>
+
+            <dt>Labels</dt>
+            <dd>
+              <LabelPicker value={task.labelIds} disabled={!canEdit} onChange={(labelIds) => patch({ labelIds })} />
             </dd>
 
             <dt>Created by</dt>

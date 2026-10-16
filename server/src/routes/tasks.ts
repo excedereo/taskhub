@@ -5,6 +5,7 @@ import { audit, diff, serializeAudit, type AuditRow } from '../audit.ts'
 import { badRequest, can, canSeeCategory, forbidden, idParam, me, notFound, oneOf, optionalId, requirePermission, text, visibilityFilter } from '../http.ts'
 import { listAttachments, removeFiles } from './attachments.ts'
 import { canCreateIn } from '../permissions.ts'
+import { parseLabelIds } from './labels.ts'
 
 export const tasksRouter = Router()
 
@@ -26,6 +27,8 @@ export type TaskRow = {
   updated_at: number
   closed_at: number | null
   archived_at: number | null
+  due_date: string | null
+  label_ids: string | null
   attachment_count: number
   subtask_count: number
   subtask_done: number
@@ -36,7 +39,8 @@ const TASK_SELECT = `
   SELECT tasks.*,
     (SELECT COUNT(*) FROM attachments a WHERE a.task_id = tasks.id) AS attachment_count,
     (SELECT COUNT(*) FROM tasks c WHERE c.parent_id = tasks.id AND c.archived_at IS NULL) AS subtask_count,
-    (SELECT COUNT(*) FROM tasks c WHERE c.parent_id = tasks.id AND c.archived_at IS NULL AND c.status = 'done') AS subtask_done
+    (SELECT COUNT(*) FROM tasks c WHERE c.parent_id = tasks.id AND c.archived_at IS NULL AND c.status = 'done') AS subtask_done,
+    (SELECT group_concat(tl.label_id) FROM task_labels tl WHERE tl.task_id = tasks.id) AS label_ids
   FROM tasks`
 
 export const serializeTask = (t: TaskRow) => ({
@@ -54,6 +58,8 @@ export const serializeTask = (t: TaskRow) => ({
   updatedAt: t.updated_at,
   closedAt: t.closed_at,
   archivedAt: t.archived_at,
+  dueDate: t.due_date,
+  labelIds: t.label_ids ? t.label_ids.split(',').map(Number).sort((a, b) => a - b) : [],
   attachmentCount: t.attachment_count,
   subtaskCount: t.subtask_count,
   subtaskDone: t.subtask_done,
@@ -96,11 +102,25 @@ export const canEdit = (req: Request, task: TaskRow) => can(req, 'edit_tasks') |
 /** People working on a task: they may move it and attach files. */
 export const canWork = (req: Request, task: TaskRow) => canEdit(req, task) || task.assignee_id === me(req).id
 
-type Editable = Partial<Pick<TaskRow, 'category_id' | 'title' | 'description' | 'status' | 'priority' | 'assignee_id'>>
+type Editable = Partial<Pick<TaskRow, 'category_id' | 'title' | 'description' | 'status' | 'priority' | 'assignee_id' | 'due_date'>>
 
-/** Writes changed columns, keeps closed_at in sync with status and records one audit entry. */
-function applyChanges(actorId: number, task: TaskRow, next: Editable, action = 'task.updated') {
+/** null, or a real calendar day written as YYYY-MM-DD. */
+function parseDueDate(value: unknown): string | null {
+  if (value === null || value === '') return null
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) throw badRequest('Due date must look like 2026-10-31')
+  const d = new Date(`${value}T00:00:00Z`)
+  if (Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== value) throw badRequest('Due date is not a real date')
+  return value
+}
+
+const currentLabels = (taskId: number) =>
+  (db.prepare('SELECT label_id FROM task_labels WHERE task_id = ? ORDER BY label_id').all(taskId) as { label_id: number }[]).map((r) => r.label_id)
+
+/** Writes changed columns and labels, keeps closed_at in sync with status and records one audit entry. */
+function applyChanges(actorId: number, task: TaskRow, next: Editable, action = 'task.updated', labels?: number[]) {
   const changes = diff(task, next)
+  const before = labels ? currentLabels(task.id) : []
+  if (labels && before.join() !== labels.join()) changes.labels = [before, labels]
   if (!Object.keys(changes).length) return task
 
   const merged = { ...task, ...next }
@@ -109,9 +129,13 @@ function applyChanges(actorId: number, task: TaskRow, next: Editable, action = '
 
   transaction(() => {
     db.prepare(`
-      UPDATE tasks SET category_id = ?, title = ?, description = ?, status = ?, priority = ?, assignee_id = ?, updated_at = ?, closed_at = ?
+      UPDATE tasks SET category_id = ?, title = ?, description = ?, status = ?, priority = ?, assignee_id = ?, due_date = ?, updated_at = ?, closed_at = ?
       WHERE id = ?
-    `).run(merged.category_id, merged.title, merged.description, merged.status, merged.priority, merged.assignee_id, now, merged.closed_at, task.id)
+    `).run(merged.category_id, merged.title, merged.description, merged.status, merged.priority, merged.assignee_id, merged.due_date, now, merged.closed_at, task.id)
+    if (changes.labels) {
+      db.prepare('DELETE FROM task_labels WHERE task_id = ?').run(task.id)
+      for (const id of labels!) db.prepare('INSERT INTO task_labels (task_id, label_id) VALUES (?, ?)').run(task.id, id)
+    }
     if (changes.category_id) {
       // A moved task goes to the end of its new category and takes its subtasks along.
       db.prepare('UPDATE tasks SET position = ? WHERE id = ?').run(nextPosition(merged.category_id, null), task.id)
@@ -125,7 +149,7 @@ function applyChanges(actorId: number, task: TaskRow, next: Editable, action = '
 tasksRouter.get('/tasks', (req, res) => {
   const where: string[] = []
   const params: SQLInputValue[] = []
-  const { categoryId, assignee, status, q, archived } = req.query
+  const { categoryId, assignee, status, q, archived, label } = req.query
   const showArchived = archived === '1'
   where.push(showArchived ? 'tasks.archived_at IS NOT NULL' : 'tasks.archived_at IS NULL')
   const visible = visibilityFilter(req, 'tasks.category_id')
@@ -146,6 +170,10 @@ tasksRouter.get('/tasks', (req, res) => {
   } else if (typeof assignee === 'string' && /^\d+$/.test(assignee)) {
     where.push('tasks.assignee_id = ?')
     params.push(Number(assignee))
+  }
+  if (typeof label === 'string' && /^\d+$/.test(label)) {
+    where.push('tasks.id IN (SELECT task_id FROM task_labels WHERE label_id = ?)')
+    params.push(Number(label))
   }
   if (typeof status === 'string' && (STATUSES as readonly string[]).includes(status)) {
     where.push('tasks.status = ?')
@@ -212,6 +240,8 @@ tasksRouter.post('/tasks', requirePermission('create_tasks'), (req, res) => {
   const description = text(req.body?.description ?? '', 'Description', { max: 20000 })
   const priority = oneOf(req.body?.priority ?? 'medium', 'Priority', PRIORITIES)
   const assigneeId = req.body?.assigneeId === undefined ? null : optionalId(req.body.assigneeId, 'Assignee')
+  const dueDate = req.body?.dueDate === undefined ? null : parseDueDate(req.body.dueDate)
+  const labelIds = req.body?.labelIds === undefined ? [] : parseLabelIds(req.body.labelIds)
   if (assigneeId !== null) {
     const selfTake = assigneeId === actor.id && can(req, 'take_tasks')
     if (!selfTake && !can(req, 'assign_tasks')) throw forbidden('You cannot assign tasks')
@@ -221,10 +251,11 @@ tasksRouter.post('/tasks', requirePermission('create_tasks'), (req, res) => {
   const id = transaction(() => {
     const now = Date.now()
     const { lastInsertRowid } = db.prepare(`
-      INSERT INTO tasks (category_id, parent_id, position, title, description, priority, creator_id, assignee_id, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(categoryId, parentId, nextPosition(categoryId, parentId), title, description, priority, actor.id, assigneeId, now, now)
+      INSERT INTO tasks (category_id, parent_id, position, title, description, priority, creator_id, assignee_id, due_date, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(categoryId, parentId, nextPosition(categoryId, parentId), title, description, priority, actor.id, assigneeId, dueDate, now, now)
     const id = Number(lastInsertRowid)
+    for (const labelId of labelIds) db.prepare('INSERT INTO task_labels (task_id, label_id) VALUES (?, ?)').run(id, labelId)
     audit(actor.id, 'task', id, 'task.created', { title, categoryId, priority, assigneeId, parentId })
     if (parentId) {
       const parentTitle = (db.prepare('SELECT title FROM tasks WHERE id = ?').get(parentId) as { title: string }).title
@@ -241,7 +272,7 @@ tasksRouter.patch('/tasks/:id', (req, res) => {
   const body = req.body ?? {}
   const next: Editable = {}
 
-  const editsContent = ['title', 'description', 'priority', 'categoryId'].some((k) => body[k] !== undefined)
+  const editsContent = ['title', 'description', 'priority', 'categoryId', 'dueDate', 'labelIds'].some((k) => body[k] !== undefined)
   if (editsContent && !canEdit(req, task)) throw forbidden('Only the author or someone with "Edit any task" can edit this task')
   if (body.status !== undefined && !canWork(req, task)) throw forbidden('Only the assignee, the author or an editor can change the status')
 
@@ -249,6 +280,8 @@ tasksRouter.patch('/tasks/:id', (req, res) => {
   if (body.description !== undefined) next.description = text(body.description, 'Description', { max: 20000 })
   if (body.priority !== undefined) next.priority = oneOf(body.priority, 'Priority', PRIORITIES)
   if (body.status !== undefined) next.status = oneOf(body.status, 'Status', STATUSES)
+  if (body.dueDate !== undefined) next.due_date = parseDueDate(body.dueDate)
+  const labels = body.labelIds === undefined ? undefined : parseLabelIds(body.labelIds)
   if (body.categoryId !== undefined) {
     const categoryId = optionalId(body.categoryId, 'Category')
     if (!categoryId) throw badRequest('Category is required')
@@ -264,7 +297,7 @@ tasksRouter.patch('/tasks/:id', (req, res) => {
     next.category_id = categoryId
   }
 
-  res.json(serializeTask(applyChanges(actor.id, task, next)))
+  res.json(serializeTask(applyChanges(actor.id, task, next, 'task.updated', labels)))
 })
 
 tasksRouter.post('/tasks/:id/take', (req, res) => {

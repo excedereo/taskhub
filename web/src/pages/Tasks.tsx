@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
-import { Archive, ArrowUpDown, Hash, Layers, Pencil, Plus, Search, Users } from 'lucide-react'
+import { Archive, ArrowUpDown, Hash, Layers, Pencil, Plus, Search, Tag, Users } from 'lucide-react'
 import { Select } from '../components/Select.tsx'
 import { api } from '../api.ts'
 import { useData, useMe } from '../store.tsx'
@@ -46,12 +46,13 @@ export function TasksPage() {
   const me = useMe()
   const { categoryId: categoryParam } = useParams()
   const [params, setParams] = useSearchParams()
-  const { categories, categoryById, users, can, canCreateIn, reloadCategories } = useData()
+  const { categories, categoryById, users, labels, can, canCreateIn, reloadCategories } = useData()
   const toast = useToast()
 
   const categoryId = categoryParam ? Number(categoryParam) : null
   const category = categoryId ? categoryById.get(categoryId) : undefined
   const assignee = params.get('assignee') ?? ''
+  const labelFilter = params.get('label') ?? ''
   // A category is a plan in a fixed order, so it shows finished work too; cross-category views focus on what is left.
   const defaultFilter: StatusFilter = categoryId ? 'all' : 'active'
   // The chosen filter is remembered per person and per view (each category, All tasks, My tasks).
@@ -84,9 +85,10 @@ export function TasksPage() {
     const qs = new URLSearchParams()
     if (categoryId) qs.set('categoryId', String(categoryId))
     if (assignee) qs.set('assignee', assignee)
+    if (labelFilter) qs.set('label', labelFilter)
     if (query.trim()) qs.set('q', query.trim())
     return api.get<Task[]>(`/tasks?${qs}`)
-  }, [categoryId, assignee, query])
+  }, [categoryId, assignee, labelFilter, query])
 
   useEffect(() => {
     let cancelled = false
@@ -219,6 +221,18 @@ export function TasksPage() {
               ))}
             </div>
             <div className="toolbar-right">
+              {labels.length > 0 && (
+                <Select
+                  variant="sm"
+                  aria-label="Label filter"
+                  value={labelFilter}
+                  onChange={(v) => setParam('label', v)}
+                  options={[
+                    { value: '', label: 'Any label', icon: <Tag size={14} className="muted" /> },
+                    ...labels.map((l) => ({ value: String(l.id), label: l.name, icon: <span className="dot" style={{ background: l.color }} /> })),
+                  ]}
+                />
+              )}
               <label className="search">
                 <Search size={14} />
                 <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search or #id" aria-label="Search tasks" />
