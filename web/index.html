@@ -6,12 +6,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="light dark" />
     <script>
-      // Set the theme before anything paints, so a dark or pink choice does not flash white first.
+      // Set the theme before anything paints, so a dark or custom choice does not flash white first.
       try {
-        var t = (JSON.parse(localStorage.getItem('taskhub.prefs') || '{}').theme) || 'system'
-        if (t === 'system') t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
-        document.documentElement.dataset.theme = t
         var p = JSON.parse(localStorage.getItem('taskhub.prefs') || '{}')
+        var t = p.theme || 'system'
+        var dark = matchMedia('(prefers-color-scheme: dark)').matches
+        document.documentElement.dataset.theme = t === 'light' || t === 'dark' ? t : dark ? 'dark' : 'light'
+        // Custom, built-in and workspace themes: the app caches their finished stylesheet.
+        var c = JSON.parse(localStorage.getItem('taskhub.theme-css') || 'null')
+        var safe = /[?&]safe(=|&|$)/.test(location.search)
+        if (c && c.theme === t && c.css && !(safe && t.indexOf('ws:') === 0)) {
+          document.documentElement.dataset.theme = c.base === 'dark' ? 'dark' : 'light'
+          var s = document.createElement('style')
+          s.id = 'taskhub-theme'
+          s.textContent = c.css
+          document.head.appendChild(s)
+        }
         document.documentElement.dataset.priority = p.priority === 'dots' || p.priority === 'icons' ? p.priority : 'bars'
         document.documentElement.dataset.status = p.status === 'dots' || p.status === 'icons' ? p.status : 'rings'
       } catch (e) {

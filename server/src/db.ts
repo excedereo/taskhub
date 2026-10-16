@@ -234,6 +234,19 @@ const migrations: string[] = [
   );
   CREATE INDEX webhook_queue_hook ON webhook_queue(webhook_id, id);
   `,
+  `
+  -- Themes shared by the workspace: six base colours plus optional CSS for effects.
+  CREATE TABLE themes (
+    id         INTEGER PRIMARY KEY,
+    name       TEXT NOT NULL,
+    base       TEXT NOT NULL CHECK (base IN ('light', 'dark')),
+    colors     TEXT NOT NULL,
+    css        TEXT NOT NULL DEFAULT '',
+    created_by INTEGER REFERENCES users(id),
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+  );
+  `,
 ]
 
 const current = (db.prepare('PRAGMA user_version').get() as { user_version: number }).user_version

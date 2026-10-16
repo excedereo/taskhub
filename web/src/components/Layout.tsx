@@ -3,6 +3,8 @@ import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { Menu } from 'lucide-react'
 import { useSession } from '../store.tsx'
 import { cx } from '../util.ts'
+import { api } from '../api.ts'
+import { syncWorkspaceThemes, type WorkspaceTheme } from '../prefs.ts'
 import { Sidebar } from './Sidebar.tsx'
 
 const COLLAPSED_KEY = 'taskhub.sidebar-collapsed'
@@ -22,6 +24,12 @@ export function Layout() {
   const [mobileOpen, setMobileOpen] = useState(false)
 
   useEffect(() => setMobileOpen(false), [location.pathname, location.search])
+
+  // Picks up edits to the chosen workspace theme made by someone else since the last visit.
+  const signedIn = Boolean(me)
+  useEffect(() => {
+    if (signedIn) api.get<WorkspaceTheme[]>('/themes').then(syncWorkspaceThemes).catch(() => {})
+  }, [signedIn])
 
   const toggle = () => {
     setCollapsed((c) => {

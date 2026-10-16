@@ -180,6 +180,12 @@ export function describeEvent(e: AuditEvent, ctx: EventContext, inTask = false):
       return joinParts(parts)
     }
 
+    case 'theme.created':
+      return <>added the theme {name}</>
+    case 'theme.updated':
+      return <>edited the theme {name}</>
+    case 'theme.deleted':
+      return <>deleted the theme {name}</>
     case 'integration.created':
       return <>connected the webhook {name}</>
     case 'integration.deleted':

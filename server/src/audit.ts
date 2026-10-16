@@ -1,6 +1,6 @@
 import { db } from './db.ts'
 
-export type EntityType = 'user' | 'role' | 'category' | 'task' | 'settings' | 'label' | 'priority' | 'status' | 'integration'
+export type EntityType = 'user' | 'role' | 'category' | 'task' | 'settings' | 'label' | 'priority' | 'status' | 'integration' | 'theme'
 
 export type AuditEntry = { actorId: number | null; entityType: EntityType; entityId: number | null; action: string; data: Record<string, unknown> }
 

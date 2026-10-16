@@ -1,5 +1,6 @@
-/* Design tokens. Everything visual reads from here, so theming later means editing this block. */
-:root {
+/* Design tokens. Everything visual reads from here. Both blocks have zero specificity (:where),
+   so a custom or workspace theme's own :root rules always win over them. */
+:where(:root) {
   --bg: #ffffff;
   --bg-subtle: #fafafa;
   --surface: #ffffff;
@@ -52,7 +53,7 @@
   color-scheme: light;
 }
 
-:root[data-theme="dark"] {
+:where(:root[data-theme="dark"]) {
   --bg: #0f0f11;
   --bg-subtle: #131316;
   --surface: #18181b;
@@ -1015,7 +1016,6 @@ body.dragging * { cursor: grabbing !important; user-select: none; }
 .theme-card.active { border-color: var(--text); }
 .theme-swatch { flex-shrink: 0; width: 36px; height: 36px; border-radius: 10px; box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.12); }
 .theme-check { margin-left: auto; color: var(--text); }
-.theme-card-pink .theme-swatch { box-shadow: 0 0 10px #ff1493; }
 @media (max-width: 720px) {
   .theme-grid { grid-template-columns: 1fr; }
 }
@@ -1039,210 +1039,6 @@ body.dragging * { cursor: grabbing !important; user-select: none; }
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }
 
-/* ======================================================================
-   Hyperpink. A joke theme: everything pink, everything glows. Too much on purpose.
-   ====================================================================== */
-
-:root[data-theme='pink'] {
-  --bg: #ffd1ec;
-  --bg-subtle: #ffc2e5;
-  --surface: #fff0f8;
-  --hover: #ffd6ee;
-  --active: #ffb3de;
-  --border: #ff9ad5;
-  --border-strong: #ff4fb0;
-  --text: #b3006b;
-  --text-muted: #e0358f;
-  --text-faint: #f06aae;
-  --primary: #ff1493;
-  --primary-text: #ffffff;
-  --danger: #d0004f;
-  --danger-bg: #ffe0ef;
-  --focus: #ff1493;
-  --shadow: 0 0 0 1px rgb(255 20 147 / 0.25), 0 0 16px rgb(255 20 147 / 0.45), 0 0 40px rgb(255 105 180 / 0.35);
-  --shadow-lg: 0 0 30px rgb(255 20 147 / 0.65), 0 0 90px rgb(255 105 180 / 0.55);
-
-  --status-open: #ff8cc8;
-  --status-in_progress: #ff1493;
-  --status-review: #c71585;
-  --status-done: #ff69b4;
-  --priority-high: #ff0066;
-  --priority-medium: #ff5fa2;
-
-  --series-1: #ff1493;
-  --series-2: #c71585;
-  --seg-done: #ff1493;
-  --seg-review: #c71585;
-  --seg-in_progress: #ff69b4;
-  --seg-open: #ffc2e5;
-  --cat-1: #ff1493;
-  --cat-2: #c71585;
-  --cat-3: #ff69b4;
-  --cat-4: #db7093;
-  --cat-5: #ff00aa;
-  --cat-6: #e75480;
-  --cat-7: #b0006d;
-  --cat-8: #ff85c0;
-  --cat-other: #ffb3de;
-
-  --radius: 16px;
-  --radius-sm: 12px;
-  --font: 'Comic Sans MS', 'Comic Neue', 'Chalkboard SE', 'Marker Felt', cursive;
-
-  color-scheme: light;
-  accent-color: #ff1493;
-}
-
-/* A heart for a cursor, everywhere. */
-:root[data-theme='pink'] body,
-:root[data-theme='pink'] a,
-:root[data-theme='pink'] button,
-:root[data-theme='pink'] [role='button'],
-:root[data-theme='pink'] label {
-  cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 24 24'><path fill='%23ff1493' stroke='white' stroke-width='1.6' d='M12 21s-7-4.4-9.5-9C.8 8.6 2.6 4.5 6.5 4.5c2.2 0 3.6 1.3 4.5 2.6.9-1.3 2.3-2.6 4.5-2.6 3.9 0 5.7 4.1 4 7.5C19 16.6 12 21 12 21z'/></svg>") 14 14, pointer;
-}
-
-:root[data-theme='pink'] body {
-  background: linear-gradient(120deg, #ff9ad5, #ffc4e6, #ff6ec7, #ffd6f0, #ff9ad5);
-  background-size: 400% 400%;
-  animation: pink-shift 14s ease infinite;
-}
-
-/* Glitter floating over the whole app. */
-:root[data-theme='pink'] body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-  pointer-events: none;
-  background-image:
-    radial-gradient(2px 2px at 8% 12%, #fff, transparent),
-    radial-gradient(3px 3px at 22% 68%, #fff, transparent),
-    radial-gradient(2px 2px at 35% 30%, #fff, transparent),
-    radial-gradient(3px 3px at 48% 82%, #fff, transparent),
-    radial-gradient(2px 2px at 61% 18%, #fff, transparent),
-    radial-gradient(3px 3px at 74% 55%, #fff, transparent),
-    radial-gradient(2px 2px at 86% 26%, #fff, transparent),
-    radial-gradient(3px 3px at 93% 74%, #fff, transparent),
-    radial-gradient(2px 2px at 15% 90%, #fff, transparent),
-    radial-gradient(2px 2px at 55% 50%, #fff, transparent);
-  animation: glitter 3.2s ease-in-out infinite;
-}
-
-:root[data-theme='pink'] .main { background: transparent; }
-:root[data-theme='pink'] .boot,
-:root[data-theme='pink'] .login { background: transparent; }
-
-:root[data-theme='pink'] .sidebar {
-  background: linear-gradient(180deg, rgb(255 20 147 / 0.28), rgb(255 182 217 / 0.6));
-  border-right: 2px solid #ff69b4;
-  box-shadow: 4px 0 24px rgb(255 20 147 / 0.35);
-  backdrop-filter: blur(6px);
-}
-
-:root[data-theme='pink'] .page-header h1,
-:root[data-theme='pink'] .login-card h1 {
-  color: #ff1493;
-  text-shadow: 0 0 4px #fff, 0 0 10px #ff1493, 0 0 22px #ff69b4, 0 0 40px #ff69b4;
-}
-:root[data-theme='pink'] .page-header h1::after {
-  content: ' \2665';
-  display: inline-block;
-  margin-left: 6px;
-  animation: heartbeat 1s ease-in-out infinite;
-}
-
-:root[data-theme='pink'] .brand-mark {
-  background: linear-gradient(135deg, #ff1493, #ff9ad5);
-  color: #fff;
-  animation: glow-pulse 1.6s ease-in-out infinite;
-}
-
-:root[data-theme='pink'] .nav-item.active {
-  background: linear-gradient(90deg, #ff1493, #ff69b4);
-  color: #fff;
-  text-shadow: 0 0 4px #fff;
-  box-shadow: 0 0 14px rgb(255 20 147 / 0.7);
-}
-
-:root[data-theme='pink'] .btn-primary {
-  border: none;
-  background: linear-gradient(90deg, #ff1493, #ff69b4, #ff1493);
-  background-size: 200% 100%;
-  text-shadow: 0 0 6px #fff;
-  animation: shimmer 2.2s linear infinite, glow-pulse 1.6s ease-in-out infinite;
-}
-
-:root[data-theme='pink'] .card,
-:root[data-theme='pink'] .task-list,
-:root[data-theme='pink'] .stat,
-:root[data-theme='pink'] .table,
-:root[data-theme='pink'] .audit-list,
-:root[data-theme='pink'] .login-card,
-:root[data-theme='pink'] .segmented,
-:root[data-theme='pink'] .search,
-:root[data-theme='pink'] .select:not(.select-ghost) {
-  border-color: #ff69b4;
-  box-shadow: var(--shadow);
-}
-
-:root[data-theme='pink'] .task-row:hover {
-  background: linear-gradient(90deg, #ffc2e5, #fff0f8);
-}
-:root[data-theme='pink'] .task-row:hover .task-title::after {
-  content: ' \2727';
-  color: #ff1493;
-  text-shadow: 0 0 6px #ff69b4;
-}
-
-:root[data-theme='pink'] .segmented button.active {
-  background: #ff1493;
-  color: #fff;
-  box-shadow: 0 0 12px #ff1493;
-}
-
-:root[data-theme='pink'] .stat-value,
-:root[data-theme='pink'] .donut-total {
-  color: #ff1493;
-  text-shadow: 0 0 10px #ff69b4;
-}
-
-:root[data-theme='pink'] .avatar { box-shadow: 0 0 0 2px #fff, 0 0 10px #ff1493; }
-:root[data-theme='pink'] .status-icon,
-:root[data-theme='pink'] .priority-icon { filter: drop-shadow(0 0 3px #ff1493); }
-:root[data-theme='pink'] .stage-title { color: #ff1493; text-shadow: 0 0 8px #ff9ad5; }
-:root[data-theme='pink'] .stage-line { height: 2px; background: linear-gradient(90deg, #ff1493, transparent); }
-:root[data-theme='pink'] .input:focus,
-:root[data-theme='pink'] .select-open { box-shadow: 0 0 0 3px rgb(255 20 147 / 0.35), 0 0 18px #ff69b4; }
-:root[data-theme='pink'] .panel,
-:root[data-theme='pink'] .modal { border: 2px solid #ff69b4; }
-:root[data-theme='pink'] .toast { border-color: #ff69b4; box-shadow: var(--shadow); }
-:root[data-theme='pink'] ::selection { background: #ff1493; color: #fff; }
-:root[data-theme='pink'] ::-webkit-scrollbar { width: 12px; }
-:root[data-theme='pink'] ::-webkit-scrollbar-thumb { border: 3px solid transparent; border-radius: 999px; background: #ff69b4 padding-box; }
-
-@keyframes pink-shift {
-  0%, 100% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-}
-@keyframes glitter {
-  0%, 100% { opacity: 0.35; transform: translateY(0); }
-  50% { opacity: 1; transform: translateY(-6px); }
-}
-@keyframes heartbeat {
-  0%, 100% { transform: scale(1); }
-  30% { transform: scale(1.35); }
-  60% { transform: scale(0.95); }
-}
-@keyframes glow-pulse {
-  0%, 100% { box-shadow: 0 0 8px #ff69b4; }
-  50% { box-shadow: 0 0 22px #ff1493, 0 0 44px #ff69b4; }
-}
-@keyframes shimmer {
-  to { background-position: 200% 0; }
-}
-
-:root[data-theme='pink'] .page-header h1 { display: flex; align-items: center; }
 .form .segmented { align-self: flex-start; }
 
 /* ---------- Labels and due dates ---------- */
@@ -1498,3 +1294,30 @@ body.dragging * { cursor: grabbing !important; user-select: none; }
 .hook-limit > .segmented { align-self: flex-start; }
 .hook-groups { display: flex; flex-direction: column; gap: 10px; }
 .hook-group { display: flex; flex-direction: column; gap: 6px; }
+
+/* Themes */
+.theme-swatch-sm { width: 22px; height: 22px; border-radius: 6px; }
+.more-themes { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; margin-top: 4px; padding: 4px 6px 4px 2px; border: none; border-radius: var(--radius-sm); background: none; color: var(--text-muted); font-size: 13px; }
+.more-themes:hover { color: var(--text); }
+.more-themes svg { transition: transform 0.15s; }
+.more-themes.open svg { transform: rotate(90deg); }
+.more-themes-body { display: flex; flex-direction: column; gap: 14px; }
+.theme-group { display: flex; flex-direction: column; gap: 8px; }
+.theme-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 6px; }
+.theme-tile { display: flex; align-items: center; gap: 2px; min-width: 0; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); padding-right: 4px; }
+.theme-tile:hover { background: var(--hover); }
+.theme-tile.active { border-color: var(--text); }
+.theme-tile-pick { display: flex; flex: 1; align-items: center; gap: 8px; min-width: 0; padding: 7px 4px 7px 8px; border: none; background: none; color: var(--text); text-align: left; font-size: 13px; }
+.theme-tile-pick .theme-check { margin-left: auto; }
+.theme-tile-new { justify-content: center; gap: 6px; padding: 9px; border-style: dashed; color: var(--text-muted); font-size: 13px; }
+.theme-tile-new:hover { color: var(--text); }
+.theme-editor { display: flex; flex-direction: column; gap: 10px; padding: 14px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-subtle); }
+.theme-editor-modal { padding: 0; border: none; background: none; gap: 14px; }
+.theme-colors { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 16px; margin: 0; padding: 0; list-style: none; }
+.theme-colors li { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 6px 0; }
+.theme-colors .swatches { flex-shrink: 0; }
+.theme-css { min-height: 180px; resize: vertical; font-family: var(--mono); font-size: 12px; line-height: 1.5; padding: 10px 12px; white-space: pre; tab-size: 2; }
+.field-label svg { vertical-align: -1px; }
+@media (max-width: 640px) {
+  .theme-colors { grid-template-columns: 1fr; }
+}

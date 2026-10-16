@@ -27,7 +27,8 @@ A small self-hosted task tracker for dev teams. People sign in with Discord, wor
 
 **Small and easy to run**
 - One Node.js process with SQLite built into Node: no native modules, no external database, one port. Runs fine on the smallest VPS.
-- Your own name and logo, light and dark themes, a collapsible sidebar, and it works on phones.
+- Your own name and logo, a collapsible sidebar, and it works on phones.
+- **Themes.** Light, dark, a few built-in ones, and your own colors. People with the right permission can add workspace themes for everyone, including custom CSS for effects (see [docs/themes/hyperpink.css](docs/themes/hyperpink.css) for an over-the-top example).
 
 | Task details | Analytics |
 |---|---|

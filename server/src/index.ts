@@ -21,6 +21,7 @@ import { prioritiesRouter } from './routes/priorities.ts'
 import { statusesRouter } from './routes/statuses.ts'
 import { logoRouter, logoUrl, serveLogo } from './routes/logo.ts'
 import { integrationsRouter } from './routes/integrations.ts'
+import { serveThemeAsset, themesRouter } from './routes/themes.ts'
 import { startWebhookWorker } from './integrations.ts'
 
 // Many cheap VPS hosts ship broken IPv6; prefer IPv4 when talking to Discord.
@@ -30,6 +31,19 @@ const app = express()
 app.disable('x-powered-by')
 app.set('trust proxy', 'loopback')
 app.use(express.json({ limit: '256kb' }))
+// Workspace themes may carry CSS. Images, fonts and media may only come from here (plus Discord avatars),
+// so a theme cannot quietly report who opened the page to some other server.
+app.use((_req, res, next) => {
+  res.setHeader('Content-Security-Policy', [
+    "img-src 'self' data: blob: https://cdn.discordapp.com https://media.discordapp.net",
+    "font-src 'self' data:",
+    "media-src 'self' data: blob:",
+    "style-src 'self' 'unsafe-inline'",
+    "object-src 'none'",
+    "base-uri 'self'",
+  ].join('; '))
+  next()
+})
 app.use(cookieParser())
 app.use(sessionMiddleware)
 
@@ -48,6 +62,7 @@ api.get('/meta', (_req, res) => {
 })
 
 api.get('/logo', serveLogo)
+api.get('/theme-assets/:file', serveThemeAsset)
 
 api.use(authRouter)
 api.use(requireAuth)
@@ -68,6 +83,7 @@ api.use(prioritiesRouter)
 api.use(statusesRouter)
 api.use(logoRouter)
 api.use(integrationsRouter)
+api.use(themesRouter)
 
 app.use('/api', api)
 app.use('/api', (_req, _res, next) => next(new HttpError(404, 'Unknown endpoint')))

@@ -83,6 +83,7 @@ export function kindsOf(e: AuditEntry): string[] {
       return ['role']
     case 'settings':
     case 'integration':
+    case 'theme':
       return ['settings']
   }
   return []
@@ -231,6 +232,9 @@ export function buildEmbed(e: AuditEntry): Embed | null {
     'integration.created': `connected the webhook ${name}`,
     'integration.updated': `changed the webhook ${name}`,
     'integration.deleted': `removed the webhook ${name}`,
+    'theme.created': `added the theme ${name}`,
+    'theme.updated': `edited the theme ${name}`,
+    'theme.deleted': `deleted the theme ${name}`,
   }
   const text = simple[e.action] ?? esc(e.action)
   return { color: 0xa1a1aa, description: `${actor}** ${text}` }
