@@ -11,6 +11,7 @@
         var t = (JSON.parse(localStorage.getItem('taskhub.prefs') || '{}').theme) || 'system'
         if (t === 'system') t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
         document.documentElement.dataset.theme = t
+        document.documentElement.dataset.priority = JSON.parse(localStorage.getItem('taskhub.prefs') || '{}').priority === 'dots' ? 'dots' : 'bars'
       } catch (e) {
         document.documentElement.dataset.theme = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
       }

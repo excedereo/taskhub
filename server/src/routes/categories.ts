@@ -47,7 +47,7 @@ function requireCategory(req: Request) {
 }
 
 categoriesRouter.get('/categories', (req, res) => {
-  const rows = db.prepare(`${CATEGORY_SELECT} ORDER BY c.archived, c.name COLLATE NOCASE`).all() as CategoryRow[]
+  const rows = db.prepare(`${CATEGORY_SELECT} ORDER BY c.archived, c.position, c.id`).all() as CategoryRow[]
   res.json(rows.filter((c) => canSeeCategory(req, c.id)).map(serializeCategory))
 })
 
@@ -57,13 +57,35 @@ categoriesRouter.post('/categories', requirePermission('manage_categories'), (re
   const description = text(req.body?.description ?? '', 'Description', { max: 500 })
 
   const id = transaction(() => {
-    const { lastInsertRowid } = db.prepare('INSERT INTO categories (name, description, created_by, created_at) VALUES (?, ?, ?, ?)')
-      .run(name, description, actor.id, Date.now())
+    const next = (db.prepare('SELECT COALESCE(MAX(position), 0) + 1 AS p FROM categories').get() as { p: number }).p
+    const { lastInsertRowid } = db.prepare('INSERT INTO categories (name, description, created_by, created_at, position) VALUES (?, ?, ?, ?, ?)')
+      .run(name, description, actor.id, Date.now(), next)
     const id = Number(lastInsertRowid)
     audit(actor.id, 'category', id, 'category.created', { name })
     return id
   })
   res.status(201).json(serializeCategory(getCategory(id)!))
+})
+
+/**
+ * Reorders the categories the user sees. Hidden ones keep their slots: the visible categories
+ * are written back into the positions they already occupied, just in the new order.
+ */
+categoriesRouter.put('/categories/order', requirePermission('manage_categories'), (req, res) => {
+  const actor = me(req)
+  const ids: unknown = req.body?.ids
+  if (!Array.isArray(ids) || !ids.every((v) => Number.isSafeInteger(v))) throw badRequest('ids must be a list of category ids')
+  const all = db.prepare('SELECT id, position FROM categories ORDER BY position, id').all() as { id: number; position: number }[]
+  const known = new Map(all.map((c) => [c.id, c]))
+  const order = [...new Set(ids as number[])]
+  if (!order.every((id) => known.has(id) && canSeeCategory(req, id))) throw badRequest('Unknown category in order')
+
+  const slots = order.map((id) => known.get(id)!.position).sort((a, b) => a - b)
+  transaction(() => {
+    order.forEach((id, i) => db.prepare('UPDATE categories SET position = ? WHERE id = ?').run(slots[i], id))
+    audit(actor.id, 'category', null, 'category.reordered', { count: order.length })
+  })
+  res.json({ ok: true })
 })
 
 categoriesRouter.patch('/categories/:id', requirePermission('manage_categories'), (req, res) => {

@@ -53,9 +53,13 @@ export function PriorityIcon({ priority }: { priority: Priority }) {
   const level = { low: 1, medium: 2, high: 3 }[priority]
   return (
     <svg className={`priority-icon priority-${priority}`} width="14" height="14" viewBox="0 0 14 14" aria-label={`${priorityLabel(priority)} priority`} role="img">
-      {[0, 1, 2].map((i) => (
-        <rect key={i} x={2 + i * 4} y={9 - i * 3} width="2.5" height={3 + i * 3} rx="0.8" fill="currentColor" opacity={i < level ? 1 : 0.25} />
-      ))}
+      {/* Both looks are drawn; the "Priority icons" preference shows one of them via CSS. */}
+      <g className="pi-bars">
+        {[0, 1, 2].map((i) => (
+          <rect key={i} x={2 + i * 4} y={9 - i * 3} width="2.5" height={3 + i * 3} rx="0.8" fill="currentColor" opacity={i < level ? 1 : 0.25} />
+        ))}
+      </g>
+      <circle className="pi-dot" cx="7" cy="7" r="4.5" fill="currentColor" />
     </svg>
   )
 }

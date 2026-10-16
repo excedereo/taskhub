@@ -1299,3 +1299,30 @@ body.dragging * { cursor: grabbing !important; user-select: none; }
   .label-admin .input-inline { grid-column: 1 / -1; }
   .task-labels { display: none; }
 }
+
+/* Priority icons: bars by default, colored dots as a personal preference. */
+.pi-dot { display: none; }
+:root[data-priority='dots'] .pi-bars { display: none; }
+:root[data-priority='dots'] .pi-dot { display: inline; }
+.priority-low { color: var(--text-faint); }
+/* The preview in settings always shows its own style, whatever is selected. */
+.pref-icons { display: inline-flex; align-items: center; gap: 2px; }
+.pref-icons[data-style='bars'] .pi-bars,
+.pref-icons[data-style='dots'] .pi-dot { display: inline; }
+.pref-icons[data-style='bars'] .pi-dot,
+.pref-icons[data-style='dots'] .pi-bars { display: none; }
+.pref-icons .priority-icon { margin-right: -1px; }
+
+/* Compact list of small preferences. */
+.pref-list { margin-top: 16px; padding: 4px 20px; }
+.pref-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 0; }
+.pref-row + .pref-row { border-top: 1px solid var(--border); }
+.segmented-sm button { height: 24px; padding: 0 8px; font-size: 12px; display: inline-flex; align-items: center; gap: 4px; }
+
+/* Reordering categories inside the sidebar. */
+.nav-heading-actions { display: inline-flex; gap: 2px; }
+.nav-arrange ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.nav-arrange-item { display: flex; align-items: center; gap: 6px; height: 32px; padding: 0 8px 0 6px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); transition: transform 0.18s ease; }
+.nav-arrange-item.is-dragging { box-shadow: var(--shadow); border-color: var(--border-strong); }
+.nav-arrange-item .grip { margin-left: 0; height: 24px; }
+.nav-arrange-actions { display: flex; justify-content: flex-end; gap: 6px; padding: 8px 0 4px; }

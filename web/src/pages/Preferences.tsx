@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Check } from 'lucide-react'
-import { PageHeader } from '../components/ui.tsx'
+import type { ReactNode } from 'react'
+import { PageHeader, PriorityIcon } from '../components/ui.tsx'
 import { readPrefs, savePrefs, type Prefs, type ThemeChoice } from '../prefs.ts'
 import { cx } from '../util.ts'
 
@@ -48,30 +49,41 @@ export function PreferencesPage() {
           </div>
         </div>
 
-        <div className="field">
-          <span className="field-label">Density</span>
-          <div className="segmented">
-            {(['comfortable', 'compact'] as const).map((d) => (
-              <button key={d} type="button" className={cx(prefs.density === d && 'active')} onClick={() => update({ density: d })}>
-                {d === 'comfortable' ? 'Comfortable' : 'Compact'}
-              </button>
-            ))}
-          </div>
-          <span className="field-hint">Compact fits more tasks on the screen.</span>
-        </div>
-
-        <div className="field">
-          <span className="field-label">Animations</span>
-          <div className="segmented">
-            {(['full', 'reduced'] as const).map((m) => (
-              <button key={m} type="button" className={cx(prefs.motion === m && 'active')} onClick={() => update({ motion: m })}>
-                {m === 'full' ? 'On' : 'Reduced'}
-              </button>
-            ))}
-          </div>
-          <span className="field-hint">Turns off sliding panels, fades and glows.</span>
-        </div>
       </section>
+
+      <section className="card pref-list">
+        <PrefRow label="Density" hint="Compact fits more tasks on the screen" value={prefs.density} onChange={(density) => update({ density })} options={[['comfortable', 'Comfortable'], ['compact', 'Compact']]} />
+        <PrefRow label="Animations" hint="Sliding panels, fades and glows" value={prefs.motion} onChange={(motion) => update({ motion })} options={[['full', 'On'], ['reduced', 'Reduced']]} />
+        <PrefRow
+          label="Priority icons"
+          hint="How high, medium and low are drawn"
+          value={prefs.priority}
+          onChange={(priority) => update({ priority })}
+          options={[
+            ['bars', <span key="b" className="pref-icons" data-style="bars"><PriorityIcon priority="high" /> Bars</span>],
+            ['dots', <span key="d" className="pref-icons" data-style="dots"><PriorityIcon priority="high" /><PriorityIcon priority="medium" /><PriorityIcon priority="low" /> Dots</span>],
+          ]}
+        />
+      </section>
+    </div>
+  )
+}
+
+/** One compact line per small preference: label and hint on the left, a small switch on the right. */
+function PrefRow<T extends string>({ label, hint, value, options, onChange }: { label: string; hint: string; value: T; options: [T, ReactNode][]; onChange: (v: T) => void }) {
+  return (
+    <div className="pref-row">
+      <span className="stack min-w-0">
+        <span>{label}</span>
+        <span className="muted small">{hint}</span>
+      </span>
+      <div className="segmented segmented-sm">
+        {options.map(([key, text]) => (
+          <button key={key} type="button" className={cx(value === key && 'active')} onClick={() => onChange(key)}>
+            {text}
+          </button>
+        ))}
+      </div>
     </div>
   )
 }

@@ -153,6 +153,11 @@ const migrations: string[] = [
   ALTER TABLE tasks ADD COLUMN due_date TEXT;
   CREATE INDEX tasks_due ON tasks(due_date);
   `,
+  `
+  -- Manual order of categories in the sidebar, shared by everyone.
+  ALTER TABLE categories ADD COLUMN position REAL NOT NULL DEFAULT 0;
+  UPDATE categories SET position = id;
+  `,
 ]
 
 const current = (db.prepare('PRAGMA user_version').get() as { user_version: number }).user_version

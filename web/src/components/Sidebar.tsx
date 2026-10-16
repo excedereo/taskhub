@@ -1,6 +1,10 @@
 import { useState, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { Archive, Building2, ChartColumn, Hash, Inbox, Layers, LogOut, PanelLeftClose, PanelLeftOpen, Plus, ScrollText, Settings, Shield, Users } from 'lucide-react'
+import { Archive, Building2, ChartColumn, GripVertical, Hash, Inbox, Layers, LogOut, PanelLeftClose, PanelLeftOpen, Plus, ScrollText, Settings, Settings2, Shield, Users } from 'lucide-react'
+import { api } from '../api.ts'
+import type { Category } from '../types.ts'
+import { moveItem, useDragSort } from './useDragSort.ts'
+import { useToast } from './Toast.tsx'
 import { useData, useMe, useSession } from '../store.tsx'
 import { cx, displayName } from '../util.ts'
 import { Avatar, BrandMark } from './ui.tsx'
@@ -23,6 +27,7 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
   const { pathname, search } = useLocation()
   const navigate = useNavigate()
   const [creating, setCreating] = useState(false)
+  const [arranging, setArranging] = useState(false)
 
   const params = new URLSearchParams(search)
   const onTasks = pathname === '/tasks'
@@ -51,15 +56,26 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
         <div className="nav-group">
           <div className="nav-heading">
             <span>Categories</span>
-            {can('manage_categories') && (
-              <button className="icon-btn icon-btn-sm" onClick={() => setCreating(true)} aria-label="New category" title="New category">
-                <Plus size={14} />
-              </button>
+            {can('manage_categories') && !arranging && (
+              <span className="nav-heading-actions">
+                {active.length > 1 && (
+                  <button className="icon-btn icon-btn-sm" onClick={() => setArranging(true)} aria-label="Reorder categories" title="Reorder categories">
+                    <Settings2 size={14} />
+                  </button>
+                )}
+                <button className="icon-btn icon-btn-sm" onClick={() => setCreating(true)} aria-label="New category" title="New category">
+                  <Plus size={14} />
+                </button>
+              </span>
             )}
           </div>
-          {active.map((c) => (
-            <NavItem key={c.id} to={`/tasks/c/${c.id}`} icon={<Hash size={16} />} label={c.name} count={c.openCount} active={pathname === `/tasks/c/${c.id}`} collapsed={collapsed} />
-          ))}
+          {arranging && !collapsed ? (
+            <CategoryArrange categories={active} onDone={() => setArranging(false)} />
+          ) : (
+            active.map((c) => (
+              <NavItem key={c.id} to={`/tasks/c/${c.id}`} icon={<Hash size={16} />} label={c.name} count={c.openCount} active={pathname === `/tasks/c/${c.id}`} collapsed={collapsed} />
+            ))
+          )}
           {active.length === 0 && !collapsed && <p className="nav-empty">No categories yet</p>}
         </div>
 
@@ -95,5 +111,50 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
 
       {creating && <CategoryModal onClose={() => setCreating(false)} />}
     </aside>
+  )
+}
+
+/** Drag categories into a new order right in the sidebar; saved for everyone in one request. */
+function CategoryArrange({ categories, onDone }: { categories: Category[]; onDone: () => void }) {
+  const { reloadCategories } = useData()
+  const toast = useToast()
+  const [order, setOrder] = useState(categories)
+  const [busy, setBusy] = useState(false)
+  const sort = useDragSort(order.length, (from, to) => setOrder((o) => moveItem(o, from, to)))
+
+  const save = async () => {
+    setBusy(true)
+    try {
+      await api.put('/categories/order', { ids: order.map((c) => c.id) })
+      await reloadCategories()
+      onDone()
+    } catch (err) {
+      toast.error(err)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="nav-arrange">
+      <ul>
+        {order.map((c, i) => (
+          <li key={c.id} ref={sort.ref(i)} style={sort.style(i)} className={cx('nav-arrange-item', sort.dragging === i && 'is-dragging')}>
+            <button type="button" className="grip" aria-label={`Drag ${c.name}`} title="Drag to reorder (or focus and use the arrow keys)" {...sort.handle(i)}>
+              <GripVertical size={14} />
+            </button>
+            <span className="truncate">{c.name}</span>
+          </li>
+        ))}
+      </ul>
+      <div className="nav-arrange-actions">
+        <button className="btn btn-sm btn-ghost" onClick={onDone} disabled={busy}>
+          Cancel
+        </button>
+        <button className="btn btn-sm btn-primary" onClick={save} disabled={busy}>
+          Save
+        </button>
+      </div>
+    </div>
   )
 }

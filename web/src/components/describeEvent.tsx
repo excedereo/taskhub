@@ -91,6 +91,8 @@ export function describeEvent(e: AuditEvent, ctx: EventContext, inTask = false):
       return <>edited the label {name}</>
     case 'label.deleted':
       return <>deleted the label {name}</>
+    case 'category.reordered':
+      return 'reordered the categories'
     case 'category.created':
       return <>created the category {name}</>
     case 'category.deleted':
