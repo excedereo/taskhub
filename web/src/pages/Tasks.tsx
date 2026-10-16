@@ -29,7 +29,7 @@ export function TasksPage() {
   const me = useMe()
   const { categoryId: categoryParam } = useParams()
   const [params, setParams] = useSearchParams()
-  const { categories, categoryById, users, can, reloadCategories } = useData()
+  const { categories, categoryById, users, can, canCreateIn, reloadCategories } = useData()
   const toast = useToast()
 
   const categoryId = categoryParam ? Number(categoryParam) : null
@@ -118,7 +118,8 @@ export function TasksPage() {
 
   const title = category ? category.name : assignee === 'me' ? 'My tasks' : 'All tasks'
   const hasCategories = categories.some((c) => !c.archived)
-  const canCreate = can('create_tasks') && hasCategories && !category?.archived
+  // Inside a category: may I add here? Elsewhere: is there any category I may add to?
+  const canCreate = category ? !category.archived && canCreateIn(category.id) : categories.some((c) => !c.archived && canCreateIn(c.id))
   const canTake = can('take_tasks') || can('assign_tasks')
   const canArrange = Boolean(category) && (can('manage_categories') || can('edit_tasks'))
   const filtersActive = statusFilter !== 'all' || Boolean(assignee) || Boolean(query.trim())

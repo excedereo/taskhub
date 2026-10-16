@@ -1,7 +1,8 @@
 import { Router } from 'express'
 import { db, getSetting, transaction } from '../db.ts'
 import { audit, diff } from '../audit.ts'
-import { covers, isPermission } from '../permissions.ts'
+import { covers, isPermission, limitWithin } from '../permissions.ts'
+import type { SessionUser } from '../auth.ts'
 import { badRequest, forbidden, idParam, me, notFound, requirePermission, text } from '../http.ts'
 
 export const rolesRouter = Router()
@@ -12,6 +13,7 @@ type RoleRow = {
   color: string | null
   permissions: string
   is_system: number
+  create_categories: string | null
   created_at: number
   member_count: number
 }
@@ -23,6 +25,7 @@ const serializeRole = (r: RoleRow, defaultRoleId: number) => ({
   permissions: JSON.parse(r.permissions) as string[],
   isSystem: Boolean(r.is_system),
   isDefault: r.id === defaultRoleId,
+  createCategories: r.create_categories === null ? null : (JSON.parse(r.create_categories) as number[]),
   memberCount: r.member_count,
 })
 
@@ -55,16 +58,33 @@ function assertNameFree(name: string, exceptId = 0) {
   if (db.prepare('SELECT 1 FROM roles WHERE name = ? AND id != ?').get(name, exceptId)) throw badRequest('A role with this name already exists')
 }
 
+/** Admins are never limited; everyone else can only hand out limits inside their own. */
+const actorLimit = (actor: SessionUser) => (actor.permissions.includes('admin') ? null : actor.createCategoryIds)
+
+function parseLimit(value: unknown, actor: SessionUser): string | null {
+  if (value === null) {
+    if (actorLimit(actor) !== null) throw forbidden('You can only allow categories you can create tasks in yourself')
+    return null
+  }
+  if (!Array.isArray(value) || !value.every((v) => Number.isSafeInteger(v) && v > 0)) throw badRequest('createCategories must be null or a list of category ids')
+  const ids = [...new Set(value as number[])].sort((a, b) => a - b)
+  const known = new Set((db.prepare('SELECT id FROM categories').all() as { id: number }[]).map((r) => r.id))
+  if (!ids.every((id) => known.has(id))) throw badRequest('Unknown category in createCategories')
+  if (!limitWithin(ids, actorLimit(actor))) throw forbidden('You can only allow categories you can create tasks in yourself')
+  return JSON.stringify(ids)
+}
+
 rolesRouter.post('/roles', requirePermission('manage_roles'), (req, res) => {
   const actor = me(req)
   const name = text(req.body?.name, 'Name', { min: 1, max: 32 })
   const color = parseColor(req.body?.color ?? null)
   const permissions = parsePermissions(req.body?.permissions ?? [], actor.permissions)
+  const createCategories = req.body?.createCategories === undefined ? (actorLimit(actor) === null ? null : JSON.stringify(actorLimit(actor))) : parseLimit(req.body.createCategories, actor)
   assertNameFree(name)
 
   const id = transaction(() => {
-    const { lastInsertRowid } = db.prepare('INSERT INTO roles (name, color, permissions, created_at) VALUES (?, ?, ?, ?)')
-      .run(name, color, JSON.stringify(permissions), Date.now())
+    const { lastInsertRowid } = db.prepare('INSERT INTO roles (name, color, permissions, create_categories, created_at) VALUES (?, ?, ?, ?, ?)')
+      .run(name, color, JSON.stringify(permissions), createCategories, Date.now())
     const id = Number(lastInsertRowid)
     audit(actor.id, 'role', id, 'role.created', { name, permissions })
     return id
@@ -79,8 +99,10 @@ rolesRouter.patch('/roles/:id', requirePermission('manage_roles'), (req, res) =>
   if (role.is_system) throw forbidden('The Owner role cannot be changed')
   const current: string[] = JSON.parse(role.permissions)
   if (!covers(actor.permissions, current)) throw forbidden('This role has permissions you do not have')
+  const currentLimit = role.create_categories === null ? null : (JSON.parse(role.create_categories) as number[])
+  if (!limitWithin(currentLimit, actorLimit(actor))) throw forbidden('This role can create tasks in categories you cannot')
 
-  const next: { name?: string; color?: string | null; permissions?: string } = {}
+  const next: { name?: string; color?: string | null; permissions?: string; create_categories?: string | null } = {}
   if (req.body?.name !== undefined) {
     next.name = text(req.body.name, 'Name', { min: 1, max: 32 })
     assertNameFree(next.name, role.id)
@@ -92,13 +114,24 @@ rolesRouter.patch('/roles/:id', requirePermission('manage_roles'), (req, res) =>
     next.permissions = JSON.stringify(parsePermissions(req.body.permissions, actor.permissions).sort())
     if (next.permissions === JSON.stringify([...current].sort())) delete next.permissions
   }
+  if (req.body?.createCategories !== undefined) {
+    if (role.id === actor.roleId) throw forbidden('You cannot change the category limits of your own role')
+    next.create_categories = parseLimit(req.body.createCategories, actor)
+  }
 
   const changes = diff(role, next)
   if (Object.keys(changes).length) {
     if (changes.permissions) changes.permissions = [current, JSON.parse(next.permissions!)]
+    if (changes.create_categories) changes.create_categories = [currentLimit, next.create_categories === null ? null : JSON.parse(next.create_categories!)]
     transaction(() => {
-      db.prepare('UPDATE roles SET name = ?, color = ?, permissions = ? WHERE id = ?')
-        .run(next.name ?? role.name, next.color === undefined ? role.color : next.color, next.permissions ?? role.permissions, role.id)
+      db.prepare('UPDATE roles SET name = ?, color = ?, permissions = ?, create_categories = ? WHERE id = ?')
+        .run(
+          next.name ?? role.name,
+          next.color === undefined ? role.color : next.color,
+          next.permissions ?? role.permissions,
+          next.create_categories === undefined ? role.create_categories : next.create_categories,
+          role.id,
+        )
       audit(actor.id, 'role', role.id, 'role.updated', { name: next.name ?? role.name, changes })
     })
   }

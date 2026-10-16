@@ -21,6 +21,8 @@ export type Me = {
   roleName: string
   roleColor: string | null
   permissions: string[]
+  /** Categories this user may create tasks in; null means all of them. */
+  createCategoryIds: number[] | null
 }
 
 export type User = {
@@ -43,6 +45,7 @@ export type Role = {
   isSystem: boolean
   isDefault: boolean
   memberCount: number
+  createCategories: number[] | null
 }
 
 export type Category = {

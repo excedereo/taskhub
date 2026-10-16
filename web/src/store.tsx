@@ -20,6 +20,8 @@ type Data = {
   reloadRoles: () => Promise<void>
   reloadCategories: () => Promise<void>
   can: (perm: string) => boolean
+  /** Create permission plus the role's category limit (admins are never limited). */
+  canCreateIn: (categoryId: number) => boolean
 }
 
 const SessionContext = createContext<Session | null>(null)
@@ -75,6 +77,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [me],
   )
 
+  const canCreateIn = useCallback(
+    (categoryId: number) =>
+      Boolean(me && (me.permissions.includes('admin') || (me.permissions.includes('create_tasks') && (me.createCategoryIds === null || me.createCategoryIds.includes(categoryId))))),
+    [me],
+  )
+
   const value = useMemo<Data>(
     () => ({
       users,
@@ -87,8 +95,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       reloadRoles,
       reloadCategories,
       can,
+      canCreateIn,
     }),
-    [users, roles, categories, reloadUsers, reloadRoles, reloadCategories, can],
+    [users, roles, categories, reloadUsers, reloadRoles, reloadCategories, can, canCreateIn],
   )
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>
 }

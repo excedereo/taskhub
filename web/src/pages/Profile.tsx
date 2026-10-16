@@ -90,7 +90,11 @@ export function ProfilePage() {
           {perms.map((p) => (
             <li key={p.key}>
               <span>{p.label}</span>
-              <span className="muted small">{p.description}</span>
+              <span className="muted small">
+                {p.key === 'create_tasks' && me.createCategoryIds !== null
+                  ? `Only in: ${me.createCategoryIds.map((id) => categoryById.get(id)?.name).filter(Boolean).join(', ') || 'no category yet'}`
+                  : p.description}
+              </span>
             </li>
           ))}
         </ul>

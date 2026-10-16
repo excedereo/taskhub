@@ -15,11 +15,11 @@ let draftSeq = 0
 
 export function NewTaskModal({ defaultCategoryId, onClose, onCreated }: { defaultCategoryId?: number; onClose: () => void; onCreated: (task: Task) => void }) {
   const me = useMe()
-  const { categories, users, can, reloadCategories } = useData()
+  const { categories, users, can, canCreateIn, reloadCategories } = useData()
   const toast = useToast()
-  const active = categories.filter((c) => !c.archived)
+  const active = categories.filter((c) => !c.archived && canCreateIn(c.id))
 
-  const [categoryId, setCategoryId] = useState(defaultCategoryId ?? active[0]?.id ?? 0)
+  const [categoryId, setCategoryId] = useState(defaultCategoryId && active.some((c) => c.id === defaultCategoryId) ? defaultCategoryId : (active[0]?.id ?? 0))
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [priority, setPriority] = useState<Priority>('medium')

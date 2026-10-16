@@ -1,24 +1,24 @@
 import { useEffect, useState } from 'react'
-import { Lock, Plus } from 'lucide-react'
+import { Hash, Lock, Plus } from 'lucide-react'
 import { api } from '../api.ts'
 import { useData, useMe, useSession } from '../store.tsx'
-import type { Role } from '../types.ts'
+import type { Category, Role } from '../types.ts'
 import { covers, cx } from '../util.ts'
 import { ConfirmButton, Field, PageHeader } from '../components/ui.tsx'
 import { useToast } from '../components/Toast.tsx'
 
 const COLORS = [null, '#e5484d', '#f76b15', '#ffc53d', '#46a758', '#12a594', '#0090ff', '#6e56cf', '#d6409f']
 
-type Draft = { name: string; color: string | null; permissions: string[] }
+type Draft = { name: string; color: string | null; permissions: string[]; createCategories: number[] | null }
 const NEW = 'new'
 
 export function RolesPage() {
   const me = useMe()
   const { meta } = useSession()
-  const { roles, can, reloadRoles, reloadUsers } = useData()
+  const { roles, categories, can, reloadRoles, reloadUsers } = useData()
   const toast = useToast()
   const [selected, setSelected] = useState<number | typeof NEW | null>(null)
-  const [draft, setDraft] = useState<Draft>({ name: '', color: null, permissions: [] })
+  const [draft, setDraft] = useState<Draft>({ name: '', color: null, permissions: [], createCategories: null })
   const [busy, setBusy] = useState(false)
 
   const canManage = can('manage_roles')
@@ -29,11 +29,14 @@ export function RolesPage() {
   }, [roles, selected])
 
   useEffect(() => {
-    if (selected === NEW) setDraft({ name: '', color: null, permissions: [] })
-    else if (role) setDraft({ name: role.name, color: role.color, permissions: role.permissions })
+    // A limited editor starts new roles with their own limit, since they cannot hand out more.
+    if (selected === NEW) setDraft({ name: '', color: null, permissions: [], createCategories: myLimit })
+    else if (role) setDraft({ name: role.name, color: role.color, permissions: role.permissions, createCategories: role.createCategories })
   }, [selected, role])
 
   const isOwn = role?.id === me.roleId
+  const myLimit = me.permissions.includes('admin') ? null : me.createCategoryIds
+  const sameLimit = (a: number[] | null, b: number[] | null) => (a === null || b === null ? a === b : [...a].sort().join() === [...b].sort().join())
   // Why the editor is read-only, if it is.
   const lock = !canManage
     ? 'You can view roles but not change them.'
@@ -41,10 +44,12 @@ export function RolesPage() {
       ? 'The Owner role always has every permission and cannot be changed.'
       : role && !covers(me.permissions, role.permissions)
         ? 'This role has permissions you do not have, so you cannot edit it.'
-        : null
+        : role && myLimit !== null && (role.createCategories === null || role.createCategories.some((id) => !myLimit.includes(id)))
+          ? 'This role can create tasks in categories you cannot, so you cannot edit it.'
+          : null
   const readOnly = Boolean(lock)
 
-  const dirty = selected === NEW || (role && (draft.name !== role.name || draft.color !== role.color || [...draft.permissions].sort().join() !== [...role.permissions].sort().join()))
+  const dirty = selected === NEW || (role && (draft.name !== role.name || draft.color !== role.color || [...draft.permissions].sort().join() !== [...role.permissions].sort().join() || !sameLimit(draft.createCategories, role.createCategories)))
 
   const toggle = (key: string) =>
     setDraft((d) => ({ ...d, permissions: d.permissions.includes(key) ? d.permissions.filter((p) => p !== key) : [...d.permissions, key] }))
@@ -58,7 +63,10 @@ export function RolesPage() {
         setSelected(created.id)
       } else if (role) {
         const body: Partial<Draft> = { name: draft.name, color: draft.color }
-        if (!isOwn) body.permissions = draft.permissions
+        if (!isOwn) {
+          body.permissions = draft.permissions
+          body.createCategories = draft.createCategories
+        }
         await api.patch(`/roles/${role.id}`, body)
         await reloadRoles()
       }
@@ -159,6 +167,15 @@ export function RolesPage() {
                           <span className="muted small">{p.description}</span>
                         </span>
                       </label>
+                      {p.key === 'create_tasks' && checked && !draft.permissions.includes('admin') && (
+                        <CategoryLimit
+                          value={draft.createCategories}
+                          onChange={(createCategories) => setDraft({ ...draft, createCategories })}
+                          disabled={readOnly || isOwn}
+                          allowed={myLimit}
+                          categories={categories}
+                        />
+                      )}
                     </li>
                   )
                 })}
@@ -187,6 +204,42 @@ export function RolesPage() {
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+/** "All categories" or a hand-picked list; an editor can only pick categories they may create in themselves. */
+function CategoryLimit({ value, onChange, disabled, allowed, categories }: {
+  value: number[] | null
+  onChange: (v: number[] | null) => void
+  disabled: boolean
+  allowed: number[] | null
+  categories: Category[]
+}) {
+  const options = categories.filter((c) => (!c.archived || value?.includes(c.id)) && (allowed === null || allowed.includes(c.id)))
+  const toggle = (id: number) => onChange(value?.includes(id) ? value.filter((x) => x !== id) : [...(value ?? []), id])
+
+  return (
+    <div className="perm-limit">
+      <div className="segmented">
+        <button type="button" className={cx(value === null && 'active')} disabled={disabled || allowed !== null} onClick={() => onChange(null)}>
+          All categories
+        </button>
+        <button type="button" className={cx(value !== null && 'active')} disabled={disabled} onClick={() => value === null && onChange([])}>
+          Only selected
+        </button>
+      </div>
+      {value !== null && (
+        <div className="chips">
+          {options.map((c) => (
+            <label key={c.id} className={cx('chip', value.includes(c.id) && 'active', disabled && 'perm-disabled')}>
+              <input type="checkbox" checked={value.includes(c.id)} disabled={disabled} onChange={() => toggle(c.id)} />
+              <Hash size={12} /> {c.name}
+            </label>
+          ))}
+          {value.length === 0 && <span className="muted small">Pick at least one, otherwise this role cannot create tasks anywhere.</span>}
+        </div>
+      )}
     </div>
   )
 }

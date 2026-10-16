@@ -27,7 +27,7 @@ let pendingSeq = 0
 export function TaskPanel({ taskId, onClose, onOpenTask, onChanged, onDeleted }: Props) {
   const me = useMe()
   const { meta } = useSession()
-  const { users, userById, roleById, categoryById, categories, can, reloadCategories } = useData()
+  const { users, userById, roleById, categoryById, categories, can, canCreateIn, reloadCategories } = useData()
   const toast = useToast()
   const [task, setTask] = useState<Task | null>(null)
   const [history, setHistory] = useState<AuditEvent[]>([])
@@ -238,7 +238,7 @@ export function TaskPanel({ taskId, onClose, onOpenTask, onChanged, onDeleted }:
                 <Archive size={14} /> Archive
               </button>
             )}
-            {can('delete_tasks') && (
+            {(can('delete_tasks') || (can('delete_own_tasks') && isCreator)) && (
               <ConfirmButton className="btn-sm" confirmText={task.subtaskCount ? `Delete with ${task.subtaskCount} subtask(s)?` : 'Delete task?'} onConfirm={remove}>
                 <Trash2 size={14} /> Delete
               </ConfirmButton>
@@ -330,7 +330,8 @@ export function TaskPanel({ taskId, onClose, onOpenTask, onChanged, onDeleted }:
                 disabled={!canEdit || Boolean(task.parentId)}
                 onChange={(categoryId) => patch({ categoryId })}
                 options={categories
-                  .filter((c) => !c.archived || c.id === task.categoryId)
+                  // Without "Edit any task", a task can only move where its editor may create tasks.
+                  .filter((c) => c.id === task.categoryId || (!c.archived && (can('edit_tasks') || canCreateIn(c.id))))
                   .map((c) => ({ value: c.id, label: c.name, icon: <Hash size={14} className="muted" /> }))}
               />
             </dd>
@@ -369,7 +370,7 @@ export function TaskPanel({ taskId, onClose, onOpenTask, onChanged, onDeleted }:
             )}
           </section>
 
-          {!task.parentId && (subtasks.length > 0 || can('create_tasks')) && (
+          {!task.parentId && (subtasks.length > 0 || canCreateIn(task.categoryId)) && (
             <section className="panel-section">
               <h3>
                 Subtasks{' '}
@@ -398,7 +399,7 @@ export function TaskPanel({ taskId, onClose, onOpenTask, onChanged, onDeleted }:
                   </li>
                 ))}
               </ul>
-              {can('create_tasks') && (
+              {canCreateIn(task.categoryId) && (
                 <form
                   className="subtask-add"
                   onSubmit={(e) => {

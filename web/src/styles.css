@@ -963,3 +963,13 @@ select.input { padding-right: 6px; }
 @media (max-width: 1100px) {
   .dash-grid { grid-template-columns: 1fr; }
 }
+
+/* Category limit under "Create tasks" in the role editor. */
+.perm-limit { display: flex; flex-direction: column; gap: 10px; padding: 0 14px 12px 40px; }
+.perm-limit .segmented { align-self: flex-start; }
+.perm-limit .segmented button:disabled { opacity: 0.45; cursor: default; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.chip { display: inline-flex; align-items: center; gap: 4px; height: 28px; padding: 0 10px; border: 1px solid var(--border); border-radius: 999px; font-size: 13px; color: var(--text-muted); cursor: pointer; user-select: none; }
+.chip input { display: none; }
+.chip:hover { border-color: var(--border-strong); }
+.chip.active { border-color: var(--text); background: var(--hover); color: var(--text); }

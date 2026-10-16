@@ -65,6 +65,11 @@ export function describeEvent(e: AuditEvent, ctx: EventContext, inTask = false):
       const parts: ReactNode[] = []
       if (changes.name) parts.push(<>renamed the role <B>{String(changes.name[0])}</B> to {name}</>)
       if (changes.color) parts.push(<>changed the color of {name}</>)
+      if (changes.create_categories) {
+        const limit = changes.create_categories[1] as number[] | null
+        const names = (limit ?? []).map((id) => ctx.categoryById.get(id)?.name ?? 'a deleted category')
+        parts.push(limit === null ? <>let {name} create tasks in every category</> : <>limited {name} to creating tasks in {names.length ? names.join(', ') : 'no category'}</>)
+      }
       if (changes.permissions) {
         const [before, after] = changes.permissions as [string[], string[]]
         const added = after.filter((p) => !before.includes(p)).map(perm)

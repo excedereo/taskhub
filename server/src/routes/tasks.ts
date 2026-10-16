@@ -4,6 +4,7 @@ import { db, transaction } from '../db.ts'
 import { audit, diff, serializeAudit, type AuditRow } from '../audit.ts'
 import { badRequest, can, forbidden, idParam, me, notFound, oneOf, optionalId, requirePermission, text } from '../http.ts'
 import { listAttachments, removeFiles } from './attachments.ts'
+import { canCreateIn } from '../permissions.ts'
 
 export const tasksRouter = Router()
 
@@ -198,6 +199,7 @@ tasksRouter.post('/tasks', requirePermission('create_tasks'), (req, res) => {
     if (!categoryId) throw badRequest('Category is required')
   }
   assertActiveCategory(categoryId)
+  if (!canCreateIn(actor.permissions, actor.createCategoryIds, categoryId)) throw forbidden('Your role cannot create tasks in this category')
 
   const title = text(req.body?.title, 'Title', { min: 1, max: 200 })
   const description = text(req.body?.description ?? '', 'Description', { max: 20000 })
@@ -246,6 +248,10 @@ tasksRouter.patch('/tasks/:id', (req, res) => {
     if (categoryId !== task.category_id) {
       if (task.parent_id) throw badRequest('Subtasks follow their parent. Move the parent task instead.')
       assertActiveCategory(categoryId)
+      // Moving a task somewhere is as good as creating it there, unless you may edit any task anyway.
+      if (!can(req, 'edit_tasks') && !canCreateIn(actor.permissions, actor.createCategoryIds, categoryId)) {
+        throw forbidden('Your role cannot add tasks to that category')
+      }
     }
     next.category_id = categoryId
   }
@@ -302,9 +308,15 @@ tasksRouter.post('/tasks/:id/archive', (req, res) => {
   res.json(serializeTask(getTask(task.id)!))
 })
 
-tasksRouter.delete('/tasks/:id', requirePermission('delete_tasks'), (req, res) => {
+tasksRouter.delete('/tasks/:id', (req, res) => {
   const actor = me(req)
   const task = requireTask(req)
+  if (!can(req, 'delete_tasks')) {
+    if (!can(req, 'delete_own_tasks') || task.creator_id !== actor.id) throw forbidden('You can only delete tasks you created')
+    // Deleting your task must not take other people's subtasks with it.
+    const foreign = db.prepare('SELECT 1 FROM tasks WHERE parent_id = ? AND (creator_id IS NOT ? )').get(task.id, actor.id)
+    if (foreign) throw forbidden('This task has subtasks created by others. Ask someone who can delete any task.')
+  }
   // Subtasks are removed together with their parent (ON DELETE CASCADE), so collect their files too.
   const files = (db.prepare('SELECT file FROM attachments WHERE task_id = ? OR task_id IN (SELECT id FROM tasks WHERE parent_id = ?)').all(task.id, task.id) as { file: string }[]).map((r) => r.file)
   transaction(() => {
