@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { X } from 'lucide-react'
 import type { Label, Me, Role, User } from '../types.ts'
 import { ICONS } from '../icons.ts'
+import { useLooks } from '../prefs.ts'
 import { useData } from '../store.tsx'
 import { avatarUrl, cx, displayName, dueInfo } from '../util.ts'
 import { CalendarClock } from 'lucide-react'
@@ -33,14 +34,15 @@ export function UserChip({ user, size = 20 }: { user: User | undefined | null; s
  */
 export function StatusIcon({ id, size = 14 }: { id: number; size?: number }) {
   const { statuses, statusById } = useData()
+  const looks = useLooks()
   const status = statusById.get(id)
-  const color = status?.color ?? 'var(--text-faint)'
+  const color = status ? looks.statusColor(status) : 'var(--text-faint)'
   const active = statuses.filter((s) => s.type === 'active')
   const index = status ? active.findIndex((s) => s.id === status.id) : -1
   const fill = !status || status.type === 'todo' ? 0 : status.type === 'done' ? 1 : 0.5 + (active.length > 1 ? (0.25 * index) / (active.length - 1) : 0)
   // The inner pie is a fat stroke on a small circle: radius 2 + half of width 4 reaches r=4.
   const pie = 2 * Math.PI * 2
-  const Icon = ICONS[status?.icon ?? ''] ?? ICONS[status?.type === 'done' ? 'circle-check' : status?.type === 'active' ? 'loader' : 'circle-dashed']
+  const Icon = ICONS[(status && looks.statusIcon(status)) ?? ''] ?? ICONS[status?.type === 'done' ? 'circle-check' : status?.type === 'active' ? 'loader' : 'circle-dashed']
   return (
     <span className="status-icon" style={{ color, width: size, height: size }} role="img" aria-label={status?.name ?? 'Unknown status'}>
       <svg className="si-ring" width={size} height={size} viewBox="0 0 14 14">
@@ -70,12 +72,13 @@ export function StatusIcon({ id, size = 14 }: { id: number; size?: number }) {
  */
 export function PriorityIcon({ id }: { id: number }) {
   const { priorities } = useData()
+  const looks = useLooks()
   const index = priorities.findIndex((p) => p.id === id)
   const priority = priorities[index]
   const level = priorities.length < 2 || index < 0 ? 3 : Math.round(3 - (2 * index) / (priorities.length - 1))
-  const Icon = ICONS[priority?.icon ?? ''] ?? ICONS.flag
+  const Icon = ICONS[(priority && looks.priorityIcon(priority)) ?? ''] ?? ICONS.flag
   return (
-    <span className="priority-icon" style={{ color: priority?.color }} role="img" aria-label={`${priority?.name ?? 'Unknown'} priority`}>
+    <span className="priority-icon" style={{ color: priority ? looks.priorityColor(priority) : undefined }} role="img" aria-label={`${priority?.name ?? 'Unknown'} priority`}>
       <svg className="pi-bars" width="14" height="14" viewBox="0 0 14 14">
         {[0, 1, 2].map((i) => (
           <rect key={i} x={2 + i * 4} y={9 - i * 3} width="2.5" height={3 + i * 3} rx="0.8" fill="currentColor" opacity={i < level ? 1 : 0.25} />

@@ -1412,7 +1412,7 @@ body.dragging * { cursor: grabbing !important; user-select: none; }
 .workflow-list li {
   display: grid;
   grid-template-columns: auto auto minmax(0, 1fr) auto auto;
-  grid-template-areas: 'grip icon name mid del' '. . colors colors colors';
+  grid-template-areas: 'grip icon name mid del';
   align-items: center;
   gap: 6px 10px;
   padding: 8px 10px;
@@ -1423,12 +1423,11 @@ body.dragging * { cursor: grabbing !important; user-select: none; }
 }
 .workflow-list li.is-dragging { box-shadow: var(--shadow); border-color: var(--border-strong); }
 .workflow-list .grip { grid-area: grip; }
-.workflow-list .icon-pick { grid-area: icon; }
+.workflow-preview { grid-area: icon; display: grid; place-items: center; width: 24px; }
 .workflow-list .input-inline { grid-area: name; }
 .workflow-list .select,
 .workflow-list .star-on,
 .workflow-list .icon-btn { grid-area: mid; }
-.workflow-colors { grid-area: colors; }
 .workflow-lock { grid-area: del; width: 62px; }
 .workflow-list .btn { grid-area: del; }
 .star-on { color: #eab308; }
@@ -1456,5 +1455,26 @@ body.dragging * { cursor: grabbing !important; user-select: none; }
 .icon-cell.active { border-color: var(--border-strong); background: var(--active); }
 .icon-empty { grid-column: 1 / -1; padding: 12px; text-align: center; }
 @media (max-width: 720px) {
-  .workflow-list li { grid-template-columns: auto auto minmax(0, 1fr) auto; grid-template-areas: 'grip icon name del' '. mid mid mid' '. colors colors colors'; }
+  .workflow-list li { grid-template-columns: auto auto minmax(0, 1fr) auto; grid-template-areas: 'grip icon name del' '. mid mid mid'; }
+  .look-row { grid-template-columns: auto minmax(0, 1fr) auto auto; grid-template-areas: 'preview name icon reset' 'colors colors colors colors'; }
 }
+
+/* ---------- Personal colors and icons ---------- */
+
+.looks-card { display: flex; flex-direction: column; gap: 16px; margin-top: 16px; }
+.look-group { display: flex; flex-direction: column; gap: 6px; }
+.look-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.look-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto auto;
+  grid-template-areas: 'preview name icon colors reset';
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+}
+.look-row + .look-row { border-top: 1px solid var(--border); }
+.look-preview { grid-area: preview; display: grid; place-items: center; width: 22px; }
+.look-name { grid-area: name; }
+.look-row .icon-pick { grid-area: icon; }
+.look-row .swatches { grid-area: colors; }
+.look-reset { grid-area: reset; }

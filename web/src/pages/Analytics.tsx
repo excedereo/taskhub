@@ -6,6 +6,7 @@ import type { Status } from '../types.ts'
 import { cx, displayName } from '../util.ts'
 import { Avatar, PageHeader, StatusIcon } from '../components/ui.tsx'
 import { useToast } from '../components/Toast.tsx'
+import { useLooks } from '../prefs.ts'
 
 /** Counts per status id, as the server sends them. */
 type Counts = Record<number, number>
@@ -252,6 +253,7 @@ function CategoryDonut({ categories }: { categories: CategoryStats[] }) {
 /** Status segments in the workspace's own colours: done first, then work in progress, then what is waiting. */
 function StackBar({ counts, scale }: { counts: Counts; scale?: number }) {
   const { statuses } = useData()
+  const looks = useLooks()
   const ordered = [...statuses].sort((a: Status, b: Status) => TYPE_RANK[a.type] - TYPE_RANK[b.type] || a.position - b.position)
   const parts = ordered.map((s) => ({ s, n: counts[s.id] ?? 0 })).filter((p) => p.n > 0)
   return (
@@ -259,7 +261,7 @@ function StackBar({ counts, scale }: { counts: Counts; scale?: number }) {
       {parts.length === 0 ? (
         <span className="sbar-empty" />
       ) : (
-        parts.map(({ s, n }) => <span key={s.id} className="sbar-seg" style={{ flexGrow: n, background: s.color }} title={`${s.name}: ${n}`} />)
+        parts.map(({ s, n }) => <span key={s.id} className="sbar-seg" style={{ flexGrow: n, background: looks.statusColor(s) }} title={`${s.name}: ${n}`} />)
       )}
     </div>
   )

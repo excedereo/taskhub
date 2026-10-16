@@ -4,14 +4,14 @@ import { api } from '../api.ts'
 import { useData } from '../store.tsx'
 import type { StatusType } from '../types.ts'
 import { cx } from '../util.ts'
-import { ConfirmButton } from './ui.tsx'
-import { ColorPicker } from './ColorPicker.tsx'
-import { IconPicker } from './IconPicker.tsx'
+import { ConfirmButton, PriorityIcon, StatusIcon } from './ui.tsx'
 import { Select } from './Select.tsx'
 import { moveItem, useDragSort } from './useDragSort.ts'
 import { useToast } from './Toast.tsx'
 
 const WORKFLOW_COLORS = ['#dc2626', '#ea580c', '#eab308', '#16a34a', '#12a594', '#0090ff', '#6e56cf', '#d6409f', '#a1a1aa']
+
+export { WORKFLOW_COLORS }
 
 export const TYPE_OPTIONS: { value: StatusType; label: string }[] = [
   { value: 'todo', label: 'Not started' },
@@ -76,14 +76,14 @@ export function StatusesEditor() {
   }
 
   return (
-    <EditorCard title="Statuses" hint="The steps a task goes through. The type decides what a status means: Take moves to the first “In progress”, “Done” closes the task and moves it to Finished.">
+    <EditorCard title="Statuses" hint="The steps a task goes through. The type decides what a status means: Take moves to the first “In progress”, “Done” closes the task and moves it to Finished. Colors and icons are set by each person in their own Settings.">
       <ul className="workflow-list">
         {order.map((s, i) => (
           <li key={s.id} ref={sort.ref(i)} style={sort.style(i)} className={cx(sort.dragging === i && 'is-dragging')}>
             <button type="button" className="grip" aria-label={`Drag ${s.name}`} title="Drag to reorder" {...sort.handle(i)}>
               <GripVertical size={14} />
             </button>
-            <IconPicker value={s.icon} fallback={DEFAULT_ICON[s.type]} color={s.color} onChange={(icon) => run(() => api.patch(`/statuses/${s.id}`, { icon }))} />
+            <span className="workflow-preview"><StatusIcon id={s.id} size={16} /></span>
             <input
               className="input input-inline"
               defaultValue={s.name}
@@ -100,9 +100,6 @@ export function StatusesEditor() {
                 Delete
               </ConfirmButton>
             )}
-            <div className="workflow-colors">
-              <ColorPicker small value={s.color} presets={WORKFLOW_COLORS} onChange={(color) => color && run(() => api.patch(`/statuses/${s.id}`, { color }))} />
-            </div>
           </li>
         ))}
       </ul>
@@ -130,14 +127,14 @@ export function PrioritiesEditor() {
   }
 
   return (
-    <EditorCard title="Priorities" hint="Most important at the top. The star marks the priority new tasks get.">
+    <EditorCard title="Priorities" hint="Most important at the top. The star marks the priority new tasks get. Colors and icons are set by each person in their own Settings.">
       <ul className="workflow-list">
         {order.map((p, i) => (
           <li key={p.id} ref={sort.ref(i)} style={sort.style(i)} className={cx(sort.dragging === i && 'is-dragging')}>
             <button type="button" className="grip" aria-label={`Drag ${p.name}`} title="Drag to reorder" {...sort.handle(i)}>
               <GripVertical size={14} />
             </button>
-            <IconPicker value={p.icon} fallback="flag" color={p.color} onChange={(icon) => run(() => api.patch(`/priorities/${p.id}`, { icon }))} />
+            <span className="workflow-preview"><PriorityIcon id={p.id} /></span>
             <input
               className="input input-inline"
               defaultValue={p.name}
@@ -162,9 +159,6 @@ export function PrioritiesEditor() {
                 Delete
               </ConfirmButton>
             )}
-            <div className="workflow-colors">
-              <ColorPicker small value={p.color} presets={WORKFLOW_COLORS} onChange={(color) => color && run(() => api.patch(`/priorities/${p.id}`, { color }))} />
-            </div>
           </li>
         ))}
       </ul>

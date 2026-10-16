@@ -1,9 +1,11 @@
-import { useState } from 'react'
 import { Check } from 'lucide-react'
 import { useData } from '../store.tsx'
 import type { ReactNode } from 'react'
 import { PageHeader, PriorityIcon, StatusIcon } from '../components/ui.tsx'
-import { readPrefs, savePrefs, type Prefs, type ThemeChoice } from '../prefs.ts'
+import { readPrefs, savePrefs, usePrefs, useLooks, type Look, type Prefs, type ThemeChoice } from '../prefs.ts'
+import { ColorPicker } from '../components/ColorPicker.tsx'
+import { IconPicker } from '../components/IconPicker.tsx'
+import { WORKFLOW_COLORS } from '../components/WorkflowEditors.tsx'
 import { cx } from '../util.ts'
 
 const THEMES: { key: ThemeChoice; label: string; hint: string; swatch: string[] }[] = [
@@ -14,16 +16,14 @@ const THEMES: { key: ThemeChoice; label: string; hint: string; swatch: string[] 
 ]
 
 export function PreferencesPage() {
-  const [prefs, setPrefs] = useState<Prefs>(readPrefs)
+  const prefs = usePrefs()
   const { priorities, statuses } = useData()
   const top = priorities[0]
   // Preview with an "in progress" status, where rings, dots and icons differ the most.
   const firstStatus = statuses.find((s) => s.type === 'active') ?? statuses[0]
   const update = (patch: Partial<Prefs>) => {
     // Start from what is stored, so quick successive changes never overwrite each other.
-    const next = { ...readPrefs(), ...patch }
-    setPrefs(next)
-    savePrefs(next)
+    savePrefs({ ...readPrefs(), ...patch })
   }
 
   return (
@@ -82,6 +82,8 @@ export function PreferencesPage() {
           ]}
         />
       </section>
+
+      <LooksCard />
     </div>
   )
 }
@@ -103,5 +105,94 @@ function PrefRow<T extends string>({ label, hint, value, options, onChange, acti
         ))}
       </div>
     </div>
+  )
+}
+
+/** Personal colour and icon for every status and priority. Empty means "use the workspace default". */
+function LooksCard() {
+  const { statuses, priorities } = useData()
+  const prefs = usePrefs()
+  const looks = useLooks()
+
+  const setLook = (kind: 'statusLooks' | 'priorityLooks', id: number, patch: Look | null) => {
+    const current = readPrefs()
+    const map = { ...current[kind] }
+    if (patch === null) delete map[id]
+    else map[id] = { ...map[id], ...patch }
+    savePrefs({ ...current, [kind]: map })
+  }
+
+  return (
+    <section className="card looks-card">
+      <div className="stack">
+        <span>Colors and icons</span>
+        <span className="muted small">Only for you. Anything you leave alone uses the workspace default.</span>
+      </div>
+      <LookGroup title="Statuses">
+        {statuses.map((s) => (
+          <LookRow
+            key={s.id}
+            name={s.name}
+            preview={<StatusIcon id={s.id} size={16} />}
+            color={looks.statusColor(s)}
+            icon={looks.statusIcon(s)}
+            fallbackIcon={s.type === 'done' ? 'circle-check' : s.type === 'active' ? 'loader' : 'circle-dashed'}
+            changed={Boolean(prefs.statusLooks[s.id])}
+            onColor={(color) => setLook('statusLooks', s.id, { color })}
+            onIcon={(icon) => setLook('statusLooks', s.id, { icon })}
+            onReset={() => setLook('statusLooks', s.id, null)}
+          />
+        ))}
+      </LookGroup>
+      <LookGroup title="Priorities">
+        {priorities.map((p) => (
+          <LookRow
+            key={p.id}
+            name={p.name}
+            preview={<PriorityIcon id={p.id} />}
+            color={looks.priorityColor(p)}
+            icon={looks.priorityIcon(p)}
+            fallbackIcon="flag"
+            changed={Boolean(prefs.priorityLooks[p.id])}
+            onColor={(color) => setLook('priorityLooks', p.id, { color })}
+            onIcon={(icon) => setLook('priorityLooks', p.id, { icon })}
+            onReset={() => setLook('priorityLooks', p.id, null)}
+          />
+        ))}
+      </LookGroup>
+    </section>
+  )
+}
+
+function LookGroup({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div className="look-group">
+      <span className="field-label">{title}</span>
+      <ul className="look-list">{children}</ul>
+    </div>
+  )
+}
+
+function LookRow(props: {
+  name: string
+  preview: ReactNode
+  color: string
+  icon: string | null
+  fallbackIcon: string
+  changed: boolean
+  onColor: (c: string) => void
+  onIcon: (i: string) => void
+  onReset: () => void
+}) {
+  return (
+    <li className="look-row">
+      <span className="look-preview">{props.preview}</span>
+      <span className="truncate look-name">{props.name}</span>
+      <IconPicker value={props.icon} fallback={props.fallbackIcon} color={props.color} onChange={props.onIcon} />
+      <ColorPicker small value={props.color} presets={WORKFLOW_COLORS} onChange={(c) => c && props.onColor(c)} />
+      <button type="button" className="btn btn-sm btn-ghost look-reset" disabled={!props.changed} onClick={props.onReset} title="Back to the workspace default">
+        Reset
+      </button>
+    </li>
   )
 }
