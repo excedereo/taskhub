@@ -119,7 +119,15 @@ const nameOf = (table: 'statuses' | 'priorities' | 'categories', id: unknown) =>
 
 /** Keeps user text from turning into Discord formatting, links or mentions. */
 const esc = (s: unknown) => String(s ?? '').replace(/[\\*_~`|>[\]()#-]/g, '\\$&').replace(/@/g, '@\u200b').slice(0, 200)
-const hex = (color: string | null | undefined) => (color && /^#[0-9a-f]{6}$/i.test(color) ? parseInt(color.slice(1), 16) : 0xa1a1aa)
+/**
+ * Text inside a masked link: Discord ignores backslash escapes there, still applies formatting,
+ * and drops the whole link when it contains "@" or brackets. Swap those for look-alikes instead.
+ */
+const LOOKALIKE: Record<string, string> = { '[': '［', ']': '］', '@': '＠', '*': '∗', _: 'ˍ', '~': '∼', '`': 'ˋ', '|': 'ǀ', '\\': '⧵', '<': '＜', '>': '＞' }
+const linkText = (s: unknown) => String(s ?? '').replace(/[[\]@*_~`|\\<>]/g, (c) => LOOKALIKE[c]).slice(0, 200)
+/** Something that looks like a URL cannot be the text of a link, so such titles are shown unlinked. */
+const looksLikeUrl = (s: string) => /https?:|www\.|\w\.(?:com|net|org|io|ru|gg|dev|app)\b/i.test(s)
+const hex =(color: string | null | undefined) => (color && /^#[0-9a-f]{6}$/i.test(color) ? parseInt(color.slice(1), 16) : 0xa1a1aa)
 
 export type Embed = { color: number; description: string }
 
@@ -132,8 +140,10 @@ export function buildEmbed(e: AuditEntry): Embed | null {
 
   if (e.entityType === 'task') {
     const task = taskInfo(e.entityId)
-    const title = esc(task?.title ?? d.title)
-    const link = task ? `[${title}](${config.publicUrl}/tasks/c/${task.category_id}?task=${task.id})` : `**${title}**`
+    const rawTitle = String(task?.title ?? d.title ?? '')
+    const url = task && `${config.publicUrl}/tasks/c/${task.category_id}?task=${task.id}`
+    const linked = Boolean(url && !looksLikeUrl(rawTitle))
+    const link = linked ? `[${linkText(rawTitle)}](${url})` : `**${esc(rawTitle)}**`
     const sub = task?.parent_id ? ' subtask' : ''
     let verb: string
     switch (e.action) {
@@ -186,7 +196,7 @@ export function buildEmbed(e: AuditEntry): Embed | null {
     } else {
       meta.push(esc(nameOf('categories', d.categoryId)))
     }
-    meta.push(`#${e.entityId}`)
+    meta.push(url && !linked ? `[#${e.entityId}](${url})` : `#${e.entityId}`)
     return {
       color: e.action === 'task.deleted' ? 0xdc2626 : hex(task?.status_color),
       description: `${actor} ${verb} ${link}\n-# ${meta.filter(Boolean).join(' · ')}`,
