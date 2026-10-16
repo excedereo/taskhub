@@ -22,7 +22,8 @@
   --status-in_progress: #d97706;
   --status-review: #7c3aed;
   --status-done: #16a34a;
-  --priority-high: #ea580c;
+  --priority-high: #dc2626;
+  --priority-medium: #ea580c;
 
   /* Chart fills, validated for colorblind separation against the surface (dataviz check). */
   --series-1: #2a78d6;
@@ -75,7 +76,8 @@
     --status-in_progress: #f59e0b;
     --status-review: #a78bfa;
     --status-done: #22c55e;
-    --priority-high: #fb923c;
+    --priority-high: #f87171;
+    --priority-medium: #fb923c;
 
     --series-1: #3987e5;
     --series-2: #d95926;
@@ -332,6 +334,7 @@ select.input { padding-right: 6px; }
 .status-done { color: var(--status-done); }
 .priority-icon { flex-shrink: 0; color: var(--text-muted); }
 .priority-high { color: var(--priority-high); }
+.priority-medium { color: var(--priority-medium); }
 
 /* ---------- App shell ---------- */
 
