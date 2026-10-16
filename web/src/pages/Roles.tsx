@@ -221,7 +221,7 @@ export function RolesPage() {
 }
 
 /** "All categories" or a hand-picked list; an editor can only pick categories they may create in themselves. */
-function CategoryLimit({ value, onChange, disabled, allowed, categories, emptyHint = 'Pick at least one, otherwise this role cannot create tasks anywhere.' }: {
+export function CategoryLimit({ value, onChange, disabled, allowed, categories, emptyHint = 'Pick at least one, otherwise this role cannot create tasks anywhere.' }: {
   value: number[] | null
   onChange: (v: number[] | null) => void
   disabled: boolean

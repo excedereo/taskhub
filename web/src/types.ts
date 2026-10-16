@@ -152,3 +152,18 @@ export type Settings = {
   defaultRoleId: number
 }
 
+
+export type Webhook = {
+  id: number
+  name: string
+  url: string
+  events: string[] | null
+  categories: number[] | null
+  enabled: boolean
+  lastError: string | null
+  lastSentAt: number | null
+  queued: number
+  createdAt: number
+}
+
+export type EventGroup = { label: string; kinds: { key: string; label: string }[] }

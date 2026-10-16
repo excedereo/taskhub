@@ -11,6 +11,7 @@ export const PERMISSIONS = [
   { key: 'assign_tasks', label: 'Assign tasks', description: 'Assign tasks to anyone or take them away.' },
   { key: 'take_tasks', label: 'Take tasks', description: 'Pick up unassigned tasks for themselves.' },
   { key: 'view_audit', label: 'View audit log', description: 'See the full history of changes across the instance.' },
+  { key: 'manage_integrations', label: 'Manage integrations', description: 'Connect Discord webhooks and choose which events they post.' },
 ] as const
 
 export type Permission = (typeof PERMISSIONS)[number]['key']

@@ -180,6 +180,19 @@ export function describeEvent(e: AuditEvent, ctx: EventContext, inTask = false):
       return joinParts(parts)
     }
 
+    case 'integration.created':
+      return <>connected the webhook {name}</>
+    case 'integration.deleted':
+      return <>removed the webhook {name}</>
+    case 'integration.updated': {
+      const parts: ReactNode[] = []
+      if (changes.name) parts.push(<>renamed the webhook <B>{String(changes.name[0])}</B> to {name}</>)
+      if (changes.enabled) parts.push(changes.enabled[1] ? <>turned on {name}</> : <>turned off {name}</>)
+      if (changes.url) parts.push(<>changed the URL of {name}</>)
+      if (changes.events || changes.categories) parts.push(<>changed what {name} posts</>)
+      return joinParts(parts)
+    }
+
     case 'settings.updated': {
       if (changes.logo) return changes.logo[1] ? 'uploaded a new logo' : 'removed the logo'
       const labels: Record<string, string> = { instanceName: 'instance name', registration: 'registration mode', defaultRoleId: 'default role' }

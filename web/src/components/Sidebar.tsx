@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { Archive, Building2, ChartColumn, GripVertical, Hash, Inbox, Layers, LogOut, PanelLeftClose, PanelLeftOpen, Plus, ScrollText, Settings, Settings2, Shield, Users } from 'lucide-react'
+import { Archive, Building2, ChartColumn, GripVertical, Hash, Inbox, Layers, LogOut, PanelLeftClose, PanelLeftOpen, Plus, ScrollText, Settings, Settings2, Shield, Users, Webhook } from 'lucide-react'
 import { api } from '../api.ts'
 import type { Category } from '../types.ts'
 import { moveItem, useDragSort } from './useDragSort.ts'
@@ -80,7 +80,7 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
         </div>
 
         {/* Admin pages only show up for people who can actually use them. */}
-        {(can('manage_users') || can('manage_roles') || can('view_audit') || can('manage_settings') || can('manage_categories')) && (
+        {(can('manage_users') || can('manage_roles') || can('view_audit') || can('manage_settings') || can('manage_categories') || can('manage_integrations')) && (
           <div className="nav-group">
             <div className="nav-heading">
               <span>Team</span>
@@ -89,6 +89,7 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
             {can('manage_roles') && <NavItem to="/roles" icon={<Shield size={16} />} label="Roles" active={pathname === '/roles'} collapsed={collapsed} />}
             {can('view_audit') && <NavItem to="/audit" icon={<ScrollText size={16} />} label="Audit log" active={pathname === '/audit'} collapsed={collapsed} />}
             {(can('manage_settings') || can('manage_categories')) && <NavItem to="/workspace" icon={<Building2 size={16} />} label="Workspace settings" active={pathname === '/workspace'} collapsed={collapsed} />}
+            {can('manage_integrations') && <NavItem to="/integrations" icon={<Webhook size={16} />} label="Integrations" active={pathname === '/integrations'} collapsed={collapsed} />}
           </div>
         )}
       </nav>

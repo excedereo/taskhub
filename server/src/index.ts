@@ -20,6 +20,8 @@ import { labelsRouter } from './routes/labels.ts'
 import { prioritiesRouter } from './routes/priorities.ts'
 import { statusesRouter } from './routes/statuses.ts'
 import { logoRouter, logoUrl, serveLogo } from './routes/logo.ts'
+import { integrationsRouter } from './routes/integrations.ts'
+import { startWebhookWorker } from './integrations.ts'
 
 // Many cheap VPS hosts ship broken IPv6; prefer IPv4 when talking to Discord.
 dns.setDefaultResultOrder('ipv4first')
@@ -65,6 +67,7 @@ api.use(labelsRouter)
 api.use(prioritiesRouter)
 api.use(statusesRouter)
 api.use(logoRouter)
+api.use(integrationsRouter)
 
 app.use('/api', api)
 app.use('/api', (_req, _res, next) => next(new HttpError(404, 'Unknown endpoint')))
@@ -88,6 +91,7 @@ app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
 
 pruneSessions()
 setInterval(pruneSessions, 60 * 60 * 1000).unref()
+startWebhookWorker()
 
 app.listen(config.port, config.host, () => {
   console.log(`Taskhub listening on http://${config.host}:${config.port} (public URL: ${config.publicUrl})`)

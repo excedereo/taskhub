@@ -14,6 +14,7 @@ import { AuditPage } from './pages/Audit.tsx'
 import { SettingsPage } from './pages/Settings.tsx'
 import { ProfilePage } from './pages/Profile.tsx'
 import { PreferencesPage } from './pages/Preferences.tsx'
+import { IntegrationsPage } from './pages/Integrations.tsx'
 import { initPrefs } from './prefs.ts'
 import './styles.css'
 
@@ -37,6 +38,7 @@ createRoot(document.getElementById('root')!).render(
                 <Route path="/roles" element={<RolesPage />} />
                 <Route path="/audit" element={<AuditPage />} />
                 <Route path="/workspace" element={<SettingsPage />} />
+                <Route path="/integrations" element={<IntegrationsPage />} />
                 <Route path="/settings" element={<PreferencesPage />} />
                 <Route path="/profile" element={<ProfilePage />} />
                 <Route path="*" element={<Navigate to="/tasks" replace />} />

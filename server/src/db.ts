@@ -210,6 +210,30 @@ const migrations: string[] = [
            COALESCE((SELECT position FROM priorities WHERE name = 'Low') - 0.5, (SELECT MAX(position) FROM priorities) + 1, 1), 0, unixepoch() * 1000
     WHERE NOT EXISTS (SELECT 1 FROM priorities WHERE name = 'Light');
   `,
+  `
+  -- Discord webhooks that receive a feed of chosen events.
+  CREATE TABLE webhooks (
+    id           INTEGER PRIMARY KEY,
+    name         TEXT NOT NULL,
+    url          TEXT NOT NULL,
+    events       TEXT,            -- JSON list of event kinds; NULL means every kind
+    categories   TEXT,            -- JSON list of category ids; NULL means every category
+    enabled      INTEGER NOT NULL DEFAULT 1,
+    last_error   TEXT,
+    last_sent_at INTEGER,
+    created_by   INTEGER REFERENCES users(id),
+    created_at   INTEGER NOT NULL
+  );
+  -- Ready-made embeds waiting to be sent; kept in the database so a restart loses nothing.
+  CREATE TABLE webhook_queue (
+    id         INTEGER PRIMARY KEY,
+    webhook_id INTEGER NOT NULL REFERENCES webhooks(id) ON DELETE CASCADE,
+    embed      TEXT NOT NULL,
+    attempts   INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL
+  );
+  CREATE INDEX webhook_queue_hook ON webhook_queue(webhook_id, id);
+  `,
 ]
 
 const current = (db.prepare('PRAGMA user_version').get() as { user_version: number }).user_version

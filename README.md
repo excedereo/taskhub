@@ -23,6 +23,7 @@ A small self-hosted task tracker for dev teams. People sign in with Discord, wor
 **Overview**
 - **Analytics.** Open, in progress, in review and finished at a glance, unfinished work by category, progress per stage, tasks stuck for days, and workload per person.
 - **Audit log.** Every change to tasks, categories, users, roles and settings, with who did it and what changed. Each task also shows its own history.
+- **Discord webhooks.** Post a feed of chosen events (new tasks, status changes, finished work, and more) to any Discord channel, limited to the categories you pick. Bursts are combined into one message and Discord rate limits are respected.
 
 **Small and easy to run**
 - One Node.js process with SQLite built into Node: no native modules, no external database, one port. Runs fine on the smallest VPS.

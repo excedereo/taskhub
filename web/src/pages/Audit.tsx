@@ -17,6 +17,7 @@ const TYPES = [
   { key: 'user', label: 'Users' },
   { key: 'role', label: 'Roles' },
   { key: 'settings', label: 'Settings' },
+  { key: 'integration', label: 'Integrations' },
 ]
 
 type Page = { items: AuditEvent[]; nextCursor: number | null }
