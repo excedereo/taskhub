@@ -17,6 +17,13 @@ export function useDragSort(count: number, onMove: (from: number, to: number) =>
     current.current = d
     setDragState(d)
   }
+  // True for the frame in which the new order lands: transitions are off so nothing slides from its old offset.
+  const [settling, setSettling] = useState(false)
+  useEffect(() => {
+    if (!settling) return
+    const id = requestAnimationFrame(() => requestAnimationFrame(() => setSettling(false)))
+    return () => cancelAnimationFrame(id)
+  }, [settling])
   const items = useRef<(HTMLElement | null)[]>([])
   const start = useRef({ y: 0, scroll: 0, mids: [] as number[], from: 0, shift: 0 })
   const moveRef = useRef(onMove)
@@ -67,6 +74,7 @@ export function useDragSort(count: number, onMove: (from: number, to: number) =>
         window.removeEventListener('pointercancel', up)
         document.body.classList.remove('dragging')
         const d = current.current
+        setSettling(true)
         setDrag(null)
         if (d && d.to !== d.from) moveRef.current(d.from, d.to)
       }
@@ -91,7 +99,7 @@ export function useDragSort(count: number, onMove: (from: number, to: number) =>
   )
 
   const style = (index: number): CSSProperties => {
-    if (!drag) return {}
+    if (!drag) return settling ? { transition: 'none' } : {}
     const { from, to, dy, shift } = drag
     if (index === from) return { transform: `translateY(${dy}px)`, position: 'relative', zIndex: 3, transition: 'none' }
     if (from < to && index > from && index <= to) return { transform: `translateY(${-shift}px)` }

@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { GripVertical, Star } from 'lucide-react'
 import { api } from '../api.ts'
 import { useData } from '../store.tsx'
@@ -16,8 +16,13 @@ export function PrioritiesModal({ onClose }: { onClose: () => void }) {
   const { priorities, reloadPriorities } = useData()
   const toast = useToast()
   const [name, setName] = useState('')
-  const sort = useDragSort(priorities.length, (from, to) => {
-    run(() => api.put('/priorities/order', { ids: moveItem(priorities, from, to).map((p) => p.id) }))
+  // The list on screen moves right away; the server catches up, and a failure puts it back.
+  const [order, setOrder] = useState(priorities)
+  useEffect(() => setOrder(priorities), [priorities])
+  const sort = useDragSort(order.length, (from, to) => {
+    const next = moveItem(order, from, to)
+    setOrder(next)
+    run(() => api.put('/priorities/order', { ids: next.map((p) => p.id) }))
   })
 
   async function run(action: () => Promise<unknown>) {
@@ -26,6 +31,7 @@ export function PrioritiesModal({ onClose }: { onClose: () => void }) {
       await reloadPriorities()
     } catch (err) {
       toast.error(err)
+      await reloadPriorities().catch(() => {})
     }
   }
 
@@ -39,7 +45,7 @@ export function PrioritiesModal({ onClose }: { onClose: () => void }) {
     <Modal title="Priorities" width={560} onClose={onClose}>
       <p className="muted small priorities-hint">Most important at the top. Drag to reorder; the star marks the priority new tasks get.</p>
       <ul className="priority-admin">
-        {priorities.map((p, i) => (
+        {order.map((p, i) => (
           <li key={p.id} ref={sort.ref(i)} style={sort.style(i)} className={cx(sort.dragging === i && 'is-dragging')}>
             <button type="button" className="grip" aria-label={`Drag ${p.name}`} title="Drag to reorder" {...sort.handle(i)}>
               <GripVertical size={14} />
