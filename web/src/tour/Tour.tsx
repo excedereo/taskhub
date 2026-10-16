@@ -59,7 +59,7 @@ function useBaseCtx(): Pick<TourCtx, 'can' | 'instanceName' | 'statuses' | 'prio
 
 export function TourProvider({ children }: { children: ReactNode }) {
   const base = useBaseCtx()
-  const { statusById } = useData()
+  const { statusById, canCreateIn } = useData()
   const navigate = useNavigate()
   const location = useLocation()
   const [state, setState] = useState<TourState | null>(null)
@@ -77,7 +77,7 @@ export function TourProvider({ children }: { children: ReactNode }) {
   }, [])
 
   // Which guides apply needs only permissions; the example task and category are picked when a tour starts.
-  const permCtx = useMemo<TourCtx>(() => ({ ...base, categoryId: null, taskId: null, hasSections: false, hasTasks: false }), [base])
+  const permCtx = useMemo<TourCtx>(() => ({ ...base, canCreateHere: false, categoryId: null, taskId: null, hasSections: false, hasTasks: false }), [base])
   const available = useMemo(() => TOUR_MODULES.filter((m) => m.key === 'task' || m.key === 'categories' || m.when(permCtx)), [permCtx])
 
   const start = useCallback(
@@ -91,7 +91,7 @@ export function TourProvider({ children }: { children: ReactNode }) {
       const inCategory = tasks.filter((t) => t.categoryId === categoryId && !t.parentId)
       const example = inCategory.find((t) => !isDone(t) && t.subtaskCount > 0) ?? inCategory.find((t) => !isDone(t)) ?? inCategory[0]
       const sections = categoryId ? await api.get<Section[]>(`/categories/${categoryId}/sections`).catch(() => []) : []
-      const full: TourCtx = { ...base, categoryId, taskId: example?.id ?? null, hasSections: sections.length > 0, hasTasks: tasks.length > 0 }
+      const full: TourCtx = { ...base, canCreateHere: categoryId !== null && canCreateIn(categoryId), categoryId, taskId: example?.id ?? null, hasSections: sections.length > 0, hasTasks: tasks.length > 0 }
 
       const chosen = TOUR_MODULES.filter((m) => (keys ? keys.includes(m.key) : !m.admin) && m.when(full))
       const steps: Planned[] = []
@@ -127,7 +127,7 @@ export function TourProvider({ children }: { children: ReactNode }) {
       save({ seen: true })
       return true
     },
-    [base, statusById, save, location.pathname, location.search],
+    [base, statusById, canCreateIn, save, location.pathname, location.search],
   )
 
   const close = useCallback(() => {

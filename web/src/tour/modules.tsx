@@ -2,8 +2,9 @@
  * The guided tour is a set of independent guides, one per feature. Each guide and each step says when
  * it applies, so a person only ever sees what their role can use. New features add a guide here.
  *
- * The full tour walks the app in one direction: the menu once, then the task list, adding tasks,
- * a category page, a single task, and finally personal settings and the profile.
+ * The full tour walks the app in one direction: the menu once, then one category (how it is laid out,
+ * how to read its list, taking and adding tasks), then a single task, and finally personal settings
+ * and the profile.
  */
 import type { ReactNode } from 'react'
 import type { Priority, Status } from '../types.ts'
@@ -17,6 +18,8 @@ export type TourCtx = {
   /** Categories this person may add tasks to; null means all of them. */
   createIn: string[] | null
   canCreate: boolean
+  /** Whether this person may add tasks to the example category. */
+  canCreateHere: boolean
   /** An example category and task to show things on, picked from what this person can see. */
   categoryId: number | null
   taskId: number | null
@@ -57,6 +60,8 @@ const TYPE_LABEL: Record<Status['type'], string> = { todo: 'not started', active
 const isAdmin = (c: TourCtx) => ['manage_users', 'manage_roles', 'view_audit', 'manage_settings', 'manage_categories', 'manage_integrations'].some(c.can)
 // "All" is forced so a remembered filter (say, Active) cannot hide what the step points at.
 const categoryRoute = (c: TourCtx) => (c.categoryId ? `/tasks/c/${c.categoryId}?status=all` : null)
+// The list is explained inside the example category; without one, on All tasks.
+const listRoute = (c: TourCtx) => categoryRoute(c) ?? '/tasks?status=all'
 const taskRoute = (c: TourCtx) => (c.categoryId && c.taskId ? `/tasks/c/${c.categoryId}?status=all&task=${c.taskId}` : null)
 
 export const TOUR_MODULES: TourModule[] = [
@@ -84,15 +89,6 @@ export const TOUR_MODULES: TourModule[] = [
         body: 'Every task you are allowed to see, from every category, grouped by status.',
       },
       {
-        target: 'nav-categories',
-        sidebar: true,
-        title: 'Categories',
-        body: (c) =>
-          c.categoryId
-            ? 'Each category holds one kind of work, for example Bug reports, or one part of the project, such as World 1. Every task belongs to exactly one category. The number is how many of its tasks are not finished. We will open one in a moment.'
-            : 'Each category holds one kind of work, for example Bug reports, and every task belongs to exactly one. There is none you can see yet; once someone creates one, it appears here.',
-      },
-      {
         target: 'nav-analytics',
         sidebar: true,
         title: 'Analytics',
@@ -103,6 +99,15 @@ export const TOUR_MODULES: TourModule[] = [
         sidebar: true,
         title: 'Archived',
         body: 'Tasks taken out of the lists and analytics because they stopped mattering. Nothing is deleted: history, images and subtasks stay, and a task can be restored at any time.',
+      },
+      {
+        target: 'nav-categories',
+        sidebar: true,
+        title: 'Categories',
+        body: (c) =>
+          c.categoryId
+            ? 'Each category holds one kind of work, for example Bug reports, or one part of the project, such as World 1. Every task belongs to exactly one category. The number is how many of its tasks are not finished. We will open one in a moment.'
+            : 'Each category holds one kind of work, for example Bug reports, and every task belongs to exactly one. There is none you can see yet; once someone creates one, it appears here.',
       },
       {
         target: 'nav-team',
@@ -120,33 +125,58 @@ export const TOUR_MODULES: TourModule[] = [
     ],
   },
   {
-    key: 'statuses',
-    title: 'Statuses and priorities',
-    summary: 'What each status and priority in this workspace means.',
+    key: 'categories',
+    title: 'Inside a category',
+    summary: 'Creating categories, and how a category page is laid out: sections, the Finished part, arranging.',
+    when: (c) => c.categoryId !== null,
+    steps: [
+      {
+        target: 'new-category',
+        sidebar: true,
+        when: (c) => c.can('manage_categories'),
+        title: 'New category',
+        body: 'Create a category for a new kind of work. Roles can be limited to see, or to add tasks in, only some categories.',
+      },
+      {
+        route: categoryRoute,
+        target: '.page-header',
+        title: 'A category page',
+        body: 'Here the tasks of one category are listed in the order they are meant to be done, not grouped by status.',
+      },
+      {
+        target: '.stage-head',
+        when: (c) => c.hasSections,
+        title: 'Sections',
+        body: 'A category can be split into sections, for example the stages of a plan. A section is a group of tasks inside this category, not a category of its own: its tasks still belong here. The numbers show how many of its tasks are done.',
+      },
+      {
+        target: '.stage-finished',
+        demo: 'finished',
+        title: 'Finished',
+        body: 'Tasks with a finished status move down here, so what is left stays on top. Their section still counts them.',
+      },
+      {
+        target: 'arrange',
+        when: (c) => c.can('manage_categories') || c.can('edit_tasks'),
+        title: 'Arrange',
+        body: 'Change the order of tasks, and add, rename or remove sections. Drag rows by their handle. The order is the same for everyone.',
+      },
+      {
+        target: 'edit-category',
+        when: (c) => c.can('manage_categories'),
+        title: 'Edit',
+        body: 'Rename the category, change its description, archive it, or archive all of its finished tasks at once.',
+      },
+    ],
+  },
+  {
+    key: 'task-list',
+    title: 'Reading the task list',
+    summary: 'Priorities, search and filters, what each part of a task row means, and the statuses.',
     when: () => true,
     steps: [
       {
-        route: '/tasks?status=all',
-        target: 'status-filter',
-        title: 'Statuses',
-        body: (c) => (
-          <>
-            <p>A task moves through these statuses, in this order:</p>
-            <ul className="tour-list">
-              {c.statuses.map((s) => (
-                <li key={s.id}>
-                  <b>{s.name}</b>: {TYPE_LABEL[s.type]}
-                </li>
-              ))}
-            </ul>
-            <p>
-              Moving a task to a finished status closes it and records the date. A task left in an in-progress status for 7 days without any change counts as stuck in
-              Analytics. Click a tab to see only that status; Active means everything not finished.
-            </p>
-          </>
-        ),
-      },
-      {
+        route: listRoute,
         target: '.task-row .priority-icon',
         title: 'Priorities',
         body: (c) => {
@@ -166,16 +196,12 @@ export const TOUR_MODULES: TourModule[] = [
           )
         },
       },
-    ],
-  },
-  {
-    key: 'task-list',
-    title: 'Reading the task list',
-    summary: 'What each part of a task row means, and how to search and filter.',
-    when: () => true,
-    steps: [
       {
-        route: '/tasks?status=all',
+        target: 'task-filters',
+        title: 'Search and filters',
+        body: 'Search by words in the title or description, or by number, like #42. Narrow the list down to one person, to unassigned tasks, or to one label.',
+      },
+      {
         target: '.task-row',
         title: 'A task row',
         body: (c) =>
@@ -184,9 +210,24 @@ export const TOUR_MODULES: TourModule[] = [
             : 'Tasks show up here as rows: priority, number, status and title, then who is working on it. There are no tasks you can see yet.',
       },
       {
-        target: 'task-filters',
-        title: 'Search and filters',
-        body: 'Search by words in the title or description, or by number, like #42. Narrow the list down to one person, to unassigned tasks, or to one label.',
+        target: 'status-filter',
+        title: 'Statuses',
+        body: (c) => (
+          <>
+            <p>A task moves through these statuses, in this order:</p>
+            <ul className="tour-list">
+              {c.statuses.map((s) => (
+                <li key={s.id}>
+                  <b>{s.name}</b>: {TYPE_LABEL[s.type]}
+                </li>
+              ))}
+            </ul>
+            <p>
+              Moving a task to a finished status closes it and records the date. A task left in an in-progress status for 7 days without any change counts as stuck in
+              Analytics. Click a tab to see only that status; Active means everything not finished.
+            </p>
+          </>
+        ),
       },
     ],
   },
@@ -197,7 +238,7 @@ export const TOUR_MODULES: TourModule[] = [
     when: (c) => c.can('take_tasks'),
     steps: [
       {
-        route: '/tasks?status=active',
+        route: listRoute,
         target: '.take-btn',
         demo: 'take',
         title: 'Take',
@@ -229,56 +270,11 @@ export const TOUR_MODULES: TourModule[] = [
     when: (c) => c.canCreate,
     steps: [
       {
-        route: '/tasks',
+        route: (c) => (c.canCreateHere ? listRoute(c) : '/tasks'),
         target: 'new-task',
         title: 'New task',
         body: (c) =>
           `Opens a short form: title, category and priority, plus assignee, due date, labels and a description if you want them. To split a task into steps, open it and add subtasks.${c.createIn ? ` Your role can add tasks only in: ${c.createIn.join(', ')}.` : ''}`,
-      },
-    ],
-  },
-  {
-    key: 'categories',
-    title: 'Inside a category',
-    summary: 'How a category page is laid out: sections, the Finished part, arranging.',
-    when: (c) => c.categoryId !== null,
-    steps: [
-      {
-        route: categoryRoute,
-        target: '.page-header',
-        title: 'A category page',
-        body: 'Here the tasks of one category are listed in the order they are meant to be done, not grouped by status.',
-      },
-      {
-        target: '.stage-head',
-        when: (c) => c.hasSections,
-        title: 'Sections',
-        body: 'A category can be split into sections, for example the stages of a plan. A section is a group of tasks inside this category, not a category of its own: its tasks still belong here. The numbers show how many of its tasks are done.',
-      },
-      {
-        target: '.stage-finished',
-        demo: 'finished',
-        title: 'Finished',
-        body: 'Tasks with a finished status move down here, so what is left stays on top. Their section still counts them.',
-      },
-      {
-        target: 'arrange',
-        when: (c) => c.can('manage_categories') || c.can('edit_tasks'),
-        title: 'Arrange',
-        body: 'Change the order of tasks, and add, rename or remove sections. Drag rows by their handle. The order is the same for everyone.',
-      },
-      {
-        target: 'edit-category',
-        when: (c) => c.can('manage_categories'),
-        title: 'Edit',
-        body: 'Rename the category, change its description, archive it, or archive all of its finished tasks at once.',
-      },
-      {
-        target: 'new-category',
-        sidebar: true,
-        when: (c) => c.can('manage_categories'),
-        title: 'New category',
-        body: 'Create a category for a new kind of work. Roles can be limited to see, or to add tasks in, only some categories.',
       },
     ],
   },
