@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
-import { ArrowDown, ArrowUp, CornerDownRight, Plus, SeparatorHorizontal, Trash2 } from 'lucide-react'
+import { CornerDownRight, GripVertical, Plus, SeparatorHorizontal, Trash2 } from 'lucide-react'
 import { api } from '../api.ts'
 import type { Section, Task } from '../types.ts'
 import { cx } from '../util.ts'
 import { StatusIcon } from './ui.tsx'
 import { TaskRow } from './TaskRow.tsx'
 import { useToast } from './Toast.tsx'
+import { moveItem, useDragSort } from './useDragSort.ts'
 
 type Entry = { task: Task; kids: Task[] }
 type Block = { section: Section | null; entries: Entry[] }
@@ -100,12 +101,39 @@ type DraftItem =
 
 let draftSeq = 0
 
-/** Edit mode for the manual order: arrows instead of drag and drop, saved in one request. */
+function Grip({ label, ...props }: { label: string } & ReturnType<ReturnType<typeof useDragSort>['handle']>) {
+  return (
+    <button type="button" className="grip" aria-label={label} title="Drag to reorder (or focus and use the arrow keys)" {...props}>
+      <GripVertical size={16} />
+    </button>
+  )
+}
+
+/** Subtasks reorder only inside their parent, so each parent gets its own sortable list. */
+function KidList({ kids, onReorder }: { kids: Task[]; onReorder: (kids: Task[]) => void }) {
+  const sort = useDragSort(kids.length, (from, to) => onReorder(moveItem(kids, from, to)))
+  return (
+    <ul className="arrange-kids">
+      {kids.map((k, i) => (
+        <li key={k.id} ref={sort.ref(i)} style={sort.style(i)} className={cx('arrange-row arrange-kid', k.status === 'done' && 'task-row-done', sort.dragging === i && 'is-dragging')}>
+          <Grip label={`Drag subtask ${k.title}`} {...sort.handle(i)} />
+          <CornerDownRight size={14} className="nest-mark" />
+          <StatusIcon status={k.status} />
+          <span className="task-id">#{k.id}</span>
+          <span className="task-title truncate">{k.title}</span>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+/** Edit mode for the manual order: drag rows by their handle, saved in one request. */
 export function ArrangeList({ categoryId, sections, onSaved, onCancel }: { categoryId: number; sections: Section[]; onSaved: (s: Section[]) => void; onCancel: () => void }) {
   const toast = useToast()
   const [draft, setDraft] = useState<DraftItem[] | null>(null)
   const [focusKey, setFocusKey] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const sort = useDragSort(draft?.length ?? 0, (from, to) => setDraft((d) => (d ? moveItem(d, from, to) : d)))
 
   // Always arrange the complete list, regardless of the filters on the page.
   useEffect(() => {
@@ -125,20 +153,6 @@ export function ArrangeList({ categoryId, sections, onSaved, onCancel }: { categ
   if (!draft) return <div className="skeleton-list"><div className="skeleton-row" /><div className="skeleton-row" /></div>
 
   const update = (fn: (d: DraftItem[]) => DraftItem[]) => setDraft((d) => (d ? fn([...d]) : d))
-  const move = (i: number, dir: -1 | 1) =>
-    update((d) => {
-      ;[d[i], d[i + dir]] = [d[i + dir], d[i]]
-      return d
-    })
-  const moveKid = (i: number, k: number, dir: -1 | 1) =>
-    update((d) => {
-      const item = d[i]
-      if (item.kind !== 'task') return d
-      const kids = [...item.kids]
-      ;[kids[k], kids[k + dir]] = [kids[k + dir], kids[k]]
-      d[i] = { ...item, kids }
-      return d
-    })
   const insertSection = (at: number) => {
     const key = `n${++draftSeq}`
     update((d) => {
@@ -171,7 +185,7 @@ export function ArrangeList({ categoryId, sections, onSaved, onCancel }: { categ
   return (
     <div className="arrange">
       <div className="arrange-bar">
-        <span className="muted">Move items with the arrows. Sections split the list into stages.</span>
+        <span className="muted">Drag rows by the handle. Sections split the list into stages.</span>
         <span className="grow" />
         <button className="btn btn-ghost" onClick={() => insertSection(draft.length)}>
           <Plus size={14} /> Section
@@ -188,20 +202,11 @@ export function ArrangeList({ categoryId, sections, onSaved, onCancel }: { categ
 
       <ul className="arrange-list">
         {draft.map((item, i) => {
-          const arrows = (
-            <span className="arrange-arrows">
-              <button className="icon-btn icon-btn-sm" disabled={i === 0} onClick={() => move(i, -1)} aria-label="Move up" title="Move up">
-                <ArrowUp size={14} />
-              </button>
-              <button className="icon-btn icon-btn-sm" disabled={i === draft.length - 1} onClick={() => move(i, 1)} aria-label="Move down" title="Move down">
-                <ArrowDown size={14} />
-              </button>
-            </span>
-          )
-
+          const dragging = sort.dragging === i
           if (item.kind === 'section') {
             return (
-              <li key={item.key} className="arrange-row arrange-section">
+              <li key={item.key} ref={sort.ref(i)} style={sort.style(i)} className={cx('arrange-row arrange-section', dragging && 'is-dragging')}>
+                <Grip label={`Drag section ${item.title || 'untitled'}`} {...sort.handle(i)} />
                 <SeparatorHorizontal size={16} className="muted" />
                 <input
                   className="arrange-input"
@@ -212,7 +217,6 @@ export function ArrangeList({ categoryId, sections, onSaved, onCancel }: { categ
                   onChange={(e) => update((d) => ((d[i] = { ...item, title: e.target.value }), d))}
                   onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
                 />
-                {arrows}
                 <button className="icon-btn icon-btn-sm" onClick={() => update((d) => (d.splice(i, 1), d))} aria-label="Remove section" title="Remove section">
                   <Trash2 size={14} />
                 </button>
@@ -221,32 +225,17 @@ export function ArrangeList({ categoryId, sections, onSaved, onCancel }: { categ
           }
 
           return (
-            <li key={item.key}>
+            <li key={item.key} ref={sort.ref(i)} style={sort.style(i)} className={cx('arrange-item', dragging && 'is-dragging')}>
               <div className={cx('arrange-row', item.task.status === 'done' && 'task-row-done')}>
+                <Grip label={`Drag task ${item.task.title}`} {...sort.handle(i)} />
                 <StatusIcon status={item.task.status} />
                 <span className="task-id">#{item.task.id}</span>
                 <span className="task-title truncate">{item.task.title}</span>
                 <button className="btn btn-sm btn-ghost arrange-insert" onClick={() => insertSection(i)} title="Insert a section above this task">
                   <SeparatorHorizontal size={14} /> <span className="arrange-insert-label">Section above</span>
                 </button>
-                {arrows}
               </div>
-              {item.kids.map((k, ki) => (
-                <div key={k.id} className={cx('arrange-row arrange-kid', k.status === 'done' && 'task-row-done')}>
-                  <CornerDownRight size={14} className="nest-mark" />
-                  <StatusIcon status={k.status} />
-                  <span className="task-id">#{k.id}</span>
-                  <span className="task-title truncate">{k.title}</span>
-                  <span className="arrange-arrows">
-                    <button className="icon-btn icon-btn-sm" disabled={ki === 0} onClick={() => moveKid(i, ki, -1)} aria-label="Move subtask up" title="Move up">
-                      <ArrowUp size={14} />
-                    </button>
-                    <button className="icon-btn icon-btn-sm" disabled={ki === item.kids.length - 1} onClick={() => moveKid(i, ki, 1)} aria-label="Move subtask down" title="Move down">
-                      <ArrowDown size={14} />
-                    </button>
-                  </span>
-                </div>
-              ))}
+              {item.kids.length > 0 && <KidList kids={item.kids} onReorder={(kids) => update((d) => ((d[i] = { ...item, kids }), d))} />}
             </li>
           )
         })}

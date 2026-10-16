@@ -671,14 +671,11 @@ select.input { padding-right: 6px; }
 .arrange-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-subtle); font-size: 13px; }
 .arrange-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .arrange-row { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 8px 0 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); }
-.arrange-kid { margin: 4px 0 0 28px; min-height: 34px; background: var(--bg-subtle); }
-.arrange-section { margin-top: 10px; border-style: dashed; background: var(--bg-subtle); }
-.arrange-list > li:first-child.arrange-section { margin-top: 0; }
+.arrange-kid { min-height: 34px; background: var(--bg-subtle); }
+.arrange-section { border-style: dashed; background: var(--bg-subtle); }
 .arrange-input { flex: 1; min-width: 0; height: 30px; padding: 0 8px; border: 1px solid transparent; border-radius: var(--radius-sm); background: transparent; font-weight: 600; }
 .arrange-input:hover { background: var(--hover); }
 .arrange-input:focus { outline: none; border-color: var(--text-muted); background: var(--surface); }
-.arrange-arrows { display: inline-flex; gap: 2px; flex-shrink: 0; }
-.arrange-arrows .icon-btn:disabled { opacity: 0.3; cursor: default; background: transparent; }
 .arrange-insert { color: var(--text-faint); }
 
 /* ---------- Subtasks in the panel ---------- */
@@ -984,3 +981,29 @@ select.input { padding-right: 6px; }
 @media (max-width: 720px) {
   .logo-field { flex-wrap: wrap; }
 }
+
+/* Drag to reorder in Arrange mode. Uniform gaps keep the slide distance exact. */
+.arrange-list > li,
+.arrange-kids > li { transition: transform 0.18s ease; }
+.arrange-kids { list-style: none; margin: 4px 0 0 28px; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.grip {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 22px;
+  height: 28px;
+  margin-left: -6px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: var(--text-faint);
+  cursor: grab;
+  touch-action: none;
+}
+.grip:hover,
+.grip:focus-visible { background: var(--hover); color: var(--text); }
+.is-dragging.arrange-row,
+.is-dragging > .arrange-row { border-color: var(--border-strong); box-shadow: var(--shadow); }
+body.dragging,
+body.dragging * { cursor: grabbing !important; user-select: none; }
