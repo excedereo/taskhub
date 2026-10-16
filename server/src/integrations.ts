@@ -123,7 +123,7 @@ const esc = (s: unknown) => String(s ?? '').replace(/[\\*_~`|>[\]()#-]/g, '\\$&'
  * Text inside a masked link: Discord ignores backslash escapes there, still applies formatting,
  * and drops the whole link when it contains "@" or brackets. Swap those for look-alikes instead.
  */
-const LOOKALIKE: Record<string, string> = { '[': '［', ']': '］', '@': '＠', '*': '∗', _: 'ˍ', '~': '∼', '`': 'ˋ', '|': 'ǀ', '\\': '⧵', '<': '＜', '>': '＞' }
+const LOOKALIKE: Record<string, string> = { '[': '［', ']': '］', '@': '＠', '*': '∗', _: 'ˍ', '~': '∼', '`': 'ˋ', '|': 'ǀ', '\\': '∖', '<': '＜', '>': '＞' }
 const linkText = (s: unknown) => String(s ?? '').replace(/[[\]@*_~`|\\<>]/g, (c) => LOOKALIKE[c]).slice(0, 200)
 /** Something that looks like a URL cannot be the text of a link, so such titles are shown unlinked. */
 const looksLikeUrl = (s: string) => /https?:|www\.|\w\.(?:com|net|org|io|ru|gg|dev|app)\b/i.test(s)
