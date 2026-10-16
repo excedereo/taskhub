@@ -324,6 +324,9 @@ export async function sendToDiscord(url: string, embeds: Embed[]): Promise<SendR
 // Messages per webhook are spaced out; the timer only decides who is due.
 const BATCH = 10
 const SPACING_MS = 2500
+// A burst of clicks becomes one message: wait until things go quiet, but never hold events too long.
+const QUIET_MS = 4000
+const MAX_WAIT_MS = 15_000
 const MAX_ATTEMPTS = 5
 const nextAt = new Map<number, number>()
 let busy = false
@@ -335,6 +338,9 @@ async function tick() {
     const hooks = db.prepare('SELECT DISTINCT w.* FROM webhooks w JOIN webhook_queue q ON q.webhook_id = w.id WHERE w.enabled = 1').all() as WebhookRow[]
     for (const hook of hooks) {
       if ((nextAt.get(hook.id) ?? 0) > Date.now()) continue
+      const window = db.prepare('SELECT COUNT(*) AS n, MIN(created_at) AS oldest, MAX(created_at) AS newest FROM webhook_queue WHERE webhook_id = ?').get(hook.id) as { n: number; oldest: number; newest: number }
+      const now = Date.now()
+      if (window.n < BATCH && now - window.newest < QUIET_MS && now - window.oldest < MAX_WAIT_MS) continue
       const rows = db.prepare('SELECT id, embed, attempts FROM webhook_queue WHERE webhook_id = ? ORDER BY id LIMIT ?').all(hook.id, BATCH) as { id: number; embed: string; attempts: number }[]
       if (!rows.length) continue
       const ids = rows.map((r) => r.id)
