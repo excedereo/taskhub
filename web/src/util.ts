@@ -8,7 +8,9 @@ export function displayName(u: Pick<User, 'displayName' | 'username' | 'discordI
 export function avatarUrl(u: Pick<User | Me, 'discordId' | 'avatar'>, size = 64) {
   if (!u.avatar) return null
   const ext = u.avatar.startsWith('a_') ? 'gif' : 'png'
-  return `https://cdn.discordapp.com/avatars/${u.discordId}/${u.avatar}.${ext}?size=${size}`
+  // Discord's CDN only serves power-of-two sizes (16…4096); anything else is a 400 and the avatar falls back to a letter.
+  const cdnSize = Math.min(4096, Math.max(16, 2 ** Math.ceil(Math.log2(size))))
+  return `https://cdn.discordapp.com/avatars/${u.discordId}/${u.avatar}.${ext}?size=${cdnSize}`
 }
 
 const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto' })
