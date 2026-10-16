@@ -1,6 +1,6 @@
-import { useState, type FormEvent } from 'react'
+import { useState, type FormEvent, type ReactNode } from 'react'
 import { Navigate } from 'react-router-dom'
-import { UserPlus } from 'lucide-react'
+import { ChevronDown, ChevronUp, UserPlus } from 'lucide-react'
 import { api } from '../api.ts'
 import { useData, useMe } from '../store.tsx'
 import type { User } from '../types.ts'
@@ -10,17 +10,72 @@ import { Select } from '../components/Select.tsx'
 import { useToast } from '../components/Toast.tsx'
 
 const STATUS_LABEL: Record<User['status'], string> = { active: 'Active', invited: 'Invited', disabled: 'Disabled' }
+const STATUS_ORDER: Record<User['status'], number> = { active: 0, invited: 1, disabled: 2 }
+
+type SortKey = 'name' | 'role' | 'status' | 'joined' | 'seen'
+type Sort = { key: SortKey; dir: 'asc' | 'desc' }
+const SORT_KEY = 'taskhub.users-sort'
+const DEFAULT_SORT: Sort = { key: 'role', dir: 'asc' }
+const SORT_KEYS: SortKey[] = ['name', 'role', 'status', 'joined', 'seen']
+
+function readSort(): Sort {
+  try {
+    const raw = JSON.parse(localStorage.getItem(SORT_KEY) ?? 'null') as Sort | null
+    if (raw && SORT_KEYS.includes(raw.key) && (raw.dir === 'asc' || raw.dir === 'desc')) return raw
+  } catch {
+    // unreadable: fall back to the default
+  }
+  return DEFAULT_SORT
+}
+
+const dateFmt = new Intl.DateTimeFormat('en', { dateStyle: 'medium' })
 
 export function UsersPage() {
   const me = useMe()
   const { users, roles, roleById, can, reloadUsers, reloadRoles } = useData()
   const toast = useToast()
   const [adding, setAdding] = useState(false)
+  const [sort, setSort] = useState<Sort>(readSort)
 
   const canManage = can('manage_users')
   if (!canManage) return <Navigate to="/tasks" replace />
   const grantable = roles.filter((r) => covers(me.permissions, r.permissions))
   const manageable = (u: User) => canManage && u.id !== me.id && covers(me.permissions, roleById.get(u.roleId)?.permissions ?? [])
+
+  const changeSort = (key: SortKey) => {
+    // A new column starts ascending, except dates, which start with the newest.
+    const next: Sort = sort.key === key ? { key, dir: sort.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: key === 'joined' || key === 'seen' ? 'desc' : 'asc' }
+    setSort(next)
+    try {
+      localStorage.setItem(SORT_KEY, JSON.stringify(next))
+    } catch {
+      // storage unavailable: the order just won't be remembered
+    }
+  }
+
+  const rank = new Map(roles.map((r, i) => [r.id, i]))
+  const byName = (a: User, b: User) => displayName(a).localeCompare(displayName(b), undefined, { sensitivity: 'base' })
+  // Missing dates always go last, whichever way the column is sorted.
+  const byDate = (a: number | null, b: number | null, dir: number) => (a === b ? 0 : a === null ? 1 : b === null ? -1 : (a - b) * dir)
+  const sorted = [...users].sort((a, b) => {
+    const dir = sort.dir === 'asc' ? 1 : -1
+    // Disabled people sink to the bottom unless sorting by status itself.
+    if (sort.key !== 'status' && (a.status === 'disabled') !== (b.status === 'disabled')) return a.status === 'disabled' ? 1 : -1
+    let d = 0
+    if (sort.key === 'name') d = byName(a, b) * dir
+    else if (sort.key === 'role') d = ((rank.get(a.roleId) ?? 99) - (rank.get(b.roleId) ?? 99)) * dir
+    else if (sort.key === 'status') d = (STATUS_ORDER[a.status] - STATUS_ORDER[b.status]) * dir
+    else if (sort.key === 'joined') d = byDate(a.joinedAt, b.joinedAt, dir)
+    else d = byDate(a.lastLoginAt, b.lastLoginAt, dir)
+    return d || byName(a, b)
+  })
+
+  const head = (key: SortKey, label: string): ReactNode => (
+    <button type="button" className={cx('sort-head', sort.key === key && 'active')} onClick={() => changeSort(key)} aria-sort={sort.key === key ? (sort.dir === 'asc' ? 'ascending' : 'descending') : undefined}>
+      {label}
+      {sort.key === key && (sort.dir === 'asc' ? <ChevronUp size={12} /> : <ChevronDown size={12} />)}
+    </button>
+  )
 
   async function run(action: () => Promise<unknown>) {
     try {
@@ -47,13 +102,14 @@ export function UsersPage() {
 
       <div className="table">
         <div className="table-head users-grid">
-          <span>User</span>
-          <span>Role</span>
-          <span>Status</span>
-          <span>Last seen</span>
+          {head('name', 'User')}
+          {head('role', 'Role')}
+          {head('status', 'Status')}
+          {head('joined', 'Joined')}
+          {head('seen', 'Last seen')}
           <span />
         </div>
-        {users.map((u) => (
+        {sorted.map((u) => (
           <div key={u.id} className={cx('table-row users-grid', u.status === 'disabled' && 'dimmed')}>
             <span className="row gap-sm min-w-0">
               <Avatar user={u} size={32} />
@@ -74,6 +130,9 @@ export function UsersPage() {
             </span>
             <span>
               <span className={cx('pill', `pill-${u.status}`)}>{STATUS_LABEL[u.status]}</span>
+            </span>
+            <span className="muted small" title={u.joinedAt ? formatDate(u.joinedAt) : 'Has not signed in yet'}>
+              {u.joinedAt ? dateFmt.format(u.joinedAt) : 'Not yet'}
             </span>
             <span className="muted small" title={u.lastLoginAt ? formatDate(u.lastLoginAt) : undefined}>
               {u.lastLoginAt ? timeAgo(u.lastLoginAt) : 'Never'}

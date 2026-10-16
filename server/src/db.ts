@@ -247,6 +247,18 @@ const migrations: string[] = [
     updated_at INTEGER NOT NULL
   );
   `,
+  `
+  -- Roles get a manual order (a hierarchy shown everywhere roles are listed); Owner stays first.
+  ALTER TABLE roles ADD COLUMN position REAL NOT NULL DEFAULT 0;
+  UPDATE roles SET position = CASE WHEN is_system = 1 THEN 0 ELSE id END;
+  -- When someone actually joined: their first sign-in, not the moment they were invited.
+  ALTER TABLE users ADD COLUMN joined_at INTEGER;
+  UPDATE users SET joined_at = COALESCE(
+    (SELECT MIN(a.created_at) FROM audit_log a
+      WHERE a.entity_type = 'user' AND a.entity_id = users.id AND a.action IN ('user.bootstrap', 'user.joined', 'user.activated')),
+    CASE WHEN status != 'invited' THEN created_at END
+  );
+  `,
 ]
 
 const current = (db.prepare('PRAGMA user_version').get() as { user_version: number }).user_version

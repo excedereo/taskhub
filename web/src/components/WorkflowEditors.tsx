@@ -38,7 +38,7 @@ function useRunner(reload: () => Promise<void>) {
 }
 
 /** A sortable list whose order moves on screen immediately, while the server catches up. */
-function useOptimisticOrder<T extends { id: number }>(items: T[], save: (ids: number[]) => Promise<unknown>) {
+export function useOptimisticOrder<T extends { id: number }>(items: T[], save: (ids: number[]) => Promise<unknown>) {
   const [order, setOrder] = useState(items)
   useEffect(() => setOrder(items), [items])
   const sort = useDragSort(order.length, (from, to) => {

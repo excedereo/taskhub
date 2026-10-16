@@ -48,6 +48,7 @@ export type User = {
   status: 'invited' | 'active' | 'disabled'
   createdAt: number
   lastLoginAt: number | null
+  joinedAt: number | null
 }
 
 export type Role = {

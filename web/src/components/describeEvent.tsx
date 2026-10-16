@@ -64,6 +64,8 @@ export function describeEvent(e: AuditEvent, ctx: EventContext, inTask = false):
       return joinParts(parts)
     }
 
+    case 'role.reordered':
+      return 'reordered the roles'
     case 'role.created':
       return <>created the role {name}</>
     case 'role.deleted':

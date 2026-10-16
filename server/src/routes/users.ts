@@ -17,6 +17,7 @@ type UserRow = {
   status: 'invited' | 'active' | 'disabled'
   created_at: number
   last_login_at: number | null
+  joined_at: number | null
 }
 
 export const serializeUser = (u: UserRow) => ({
@@ -29,6 +30,7 @@ export const serializeUser = (u: UserRow) => ({
   status: u.status,
   createdAt: u.created_at,
   lastLoginAt: u.last_login_at,
+  joinedAt: u.joined_at,
 })
 
 const getUser = (id: number) => db.prepare('SELECT * FROM users WHERE id = ?').get(id) as UserRow | undefined

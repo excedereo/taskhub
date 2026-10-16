@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Navigate } from 'react-router-dom'
-import { Hash, Lock, Plus } from 'lucide-react'
+import { GripVertical, Hash, Lock, Plus } from 'lucide-react'
 import { api } from '../api.ts'
 import { useData, useMe, useSession } from '../store.tsx'
 import type { Category, Role } from '../types.ts'
@@ -8,6 +8,7 @@ import { covers, cx } from '../util.ts'
 import { ConfirmButton, Field, PageHeader } from '../components/ui.tsx'
 import { useToast } from '../components/Toast.tsx'
 import { ColorPicker } from '../components/ColorPicker.tsx'
+import { useOptimisticOrder } from '../components/WorkflowEditors.tsx'
 
 
 type Draft = { name: string; color: string | null; permissions: string[]; createCategories: number[] | null; viewCategories: number[] | null }
@@ -23,6 +24,13 @@ export function RolesPage() {
   const [busy, setBusy] = useState(false)
 
   const canManage = can('manage_roles')
+  // Owner is pinned on top; the rest is the hierarchy, dragged by the handle.
+  const owner = roles.filter((r) => r.isSystem)
+  const movable = useMemo(() => roles.filter((r) => !r.isSystem), [roles])
+  const { order, sort } = useOptimisticOrder(movable, (ids) => api.put('/roles/order', { ids }).then(reloadRoles).catch((err) => {
+    toast.error(err)
+    reloadRoles()
+  }))
   const role = typeof selected === 'number' ? roles.find((r) => r.id === selected) : undefined
 
   useEffect(() => {
@@ -99,7 +107,7 @@ export function RolesPage() {
     <div className="page">
       <PageHeader
         title="Roles"
-        description="Roles decide what people can do. Everyone has exactly one role."
+        description="Roles decide what people can do. Everyone has exactly one role. Drag roles to set their order: higher roles are listed first everywhere."
         actions={
           canManage && (
             <button className="btn btn-primary" onClick={() => setSelected(NEW)}>
@@ -111,15 +119,20 @@ export function RolesPage() {
 
       <div className="roles-layout">
         <ul className="role-list">
-          {roles.map((r) => (
-            <li key={r.id}>
-              <button className={cx('role-item', selected === r.id && 'active')} onClick={() => setSelected(r.id)}>
-                <span className="dot" style={{ background: r.color ?? 'var(--text-faint)' }} />
-                <span className="truncate">{r.name}</span>
-                {r.isSystem && <Lock size={12} className="muted" />}
-                {r.isDefault && <span className="badge badge-sm">Default</span>}
-                <span className="muted small role-count">{r.memberCount}</span>
-              </button>
+          {owner.map((r) => (
+            <li key={r.id} className="role-li">
+              {canManage && <span className="grip grip-placeholder" />}
+              <RoleItem role={r} active={selected === r.id} onClick={() => setSelected(r.id)} />
+            </li>
+          ))}
+          {order.map((r, i) => (
+            <li key={r.id} ref={sort.ref(i)} style={sort.style(i)} className={cx('role-li', sort.dragging === i && 'is-dragging')}>
+              {canManage && (
+                <button type="button" className="grip" aria-label={`Drag ${r.name}`} title="Drag to reorder" {...sort.handle(i)}>
+                  <GripVertical size={14} />
+                </button>
+              )}
+              <RoleItem role={r} active={selected === r.id} onClick={() => setSelected(r.id)} />
             </li>
           ))}
           {selected === NEW && (
@@ -217,6 +230,18 @@ export function RolesPage() {
         )}
       </div>
     </div>
+  )
+}
+
+function RoleItem({ role: r, active, onClick }: { role: Role; active: boolean; onClick: () => void }): ReactNode {
+  return (
+    <button className={cx('role-item', active && 'active')} onClick={onClick}>
+      <span className="dot" style={{ background: r.color ?? 'var(--text-faint)' }} />
+      <span className="truncate">{r.name}</span>
+      {r.isSystem && <Lock size={12} className="muted" />}
+      {r.isDefault && <span className="badge badge-sm">Default</span>}
+      <span className="muted small role-count">{r.memberCount}</span>
+    </button>
   )
 }
 

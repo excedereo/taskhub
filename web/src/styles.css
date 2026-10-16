@@ -718,7 +718,10 @@ select.input { padding-right: 6px; }
 .table-head { padding: 8px 16px; border-bottom: 1px solid var(--border); background: var(--bg-subtle); font-size: 12px; font-weight: 500; color: var(--text-muted); }
 .table-row { padding: 10px 16px; }
 .table-row + .table-row { border-top: 1px solid var(--border); }
-.users-grid { display: grid; grid-template-columns: minmax(0, 2.2fr) 1.2fr 0.8fr 0.9fr 110px; align-items: center; gap: 12px; }
+.users-grid { display: grid; grid-template-columns: minmax(0, 2.2fr) 1.2fr 0.8fr 0.9fr 0.9fr 110px; align-items: center; gap: 12px; }
+.sort-head { display: inline-flex; align-items: center; gap: 3px; justify-self: start; padding: 0; border: none; background: none; color: inherit; font: inherit; }
+.sort-head:hover,
+.sort-head.active { color: var(--text); }
 .row-actions { display: flex; justify-content: flex-end; }
 
 /* ---------- Roles ---------- */
@@ -879,8 +882,9 @@ select.input { padding-right: 6px; }
   .task-category { display: none; }
   .users-grid { grid-template-columns: minmax(0, 1fr) auto; }
   .users-grid > :nth-child(3),
-  .users-grid > :nth-child(4) { display: none; }
-  .users-grid > :nth-child(5) { grid-column: 1 / -1; justify-content: flex-start; }
+  .users-grid > :nth-child(4),
+  .users-grid > :nth-child(5) { display: none; }
+  .users-grid > :nth-child(6) { grid-column: 1 / -1; justify-content: flex-start; }
   .users-grid > .row-actions:empty { display: none; }
   .table-head.users-grid { display: none; }
   .roles-layout { grid-template-columns: 1fr; }
@@ -1320,4 +1324,13 @@ body.dragging * { cursor: grabbing !important; user-select: none; }
 .field-label svg { vertical-align: -1px; }
 @media (max-width: 640px) {
   .theme-colors { grid-template-columns: 1fr; }
+}
+
+/* Role hierarchy */
+.role-li { display: flex; align-items: center; gap: 2px; }
+.role-li .role-item { flex: 1; min-width: 0; }
+.role-li.is-dragging { position: relative; z-index: 2; background: var(--surface); border-radius: var(--radius-sm); box-shadow: var(--shadow); }
+.grip-placeholder { visibility: hidden; }
+@media (max-width: 860px) {
+  .role-li .grip { display: none; }
 }

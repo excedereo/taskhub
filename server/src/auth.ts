@@ -117,9 +117,9 @@ export function signIn(profile: DiscordProfile): { userId: number } | { error: S
     if (existing) {
       if (existing.status === 'disabled') return { error: 'disabled' as const }
       db.prepare(`
-        UPDATE users SET username = ?, display_name = ?, avatar = ?, status = 'active', last_login_at = ?
+        UPDATE users SET username = ?, display_name = ?, avatar = ?, status = 'active', last_login_at = ?, joined_at = COALESCE(joined_at, ?)
         WHERE id = ?
-      `).run(profile.username, profile.displayName, profile.avatar, now, existing.id)
+      `).run(profile.username, profile.displayName, profile.avatar, now, now, existing.id)
       if (existing.status === 'invited') audit(existing.id, 'user', existing.id, 'user.activated', { name: profile.displayName })
       return { userId: existing.id }
     }
@@ -130,9 +130,9 @@ export function signIn(profile: DiscordProfile): { userId: number } | { error: S
 
     const roleId = isFirst ? 1 : getSetting<number>('default_role_id')
     const { lastInsertRowid } = db.prepare(`
-      INSERT INTO users (discord_id, username, display_name, avatar, role_id, status, created_at, last_login_at)
-      VALUES (?, ?, ?, ?, ?, 'active', ?, ?)
-    `).run(profile.id, profile.username, profile.displayName, profile.avatar, roleId, now, now)
+      INSERT INTO users (discord_id, username, display_name, avatar, role_id, status, created_at, last_login_at, joined_at)
+      VALUES (?, ?, ?, ?, ?, 'active', ?, ?, ?)
+    `).run(profile.id, profile.username, profile.displayName, profile.avatar, roleId, now, now, now)
     const userId = Number(lastInsertRowid)
     audit(userId, 'user', userId, isFirst ? 'user.bootstrap' : 'user.joined', { name: profile.displayName })
     return { userId }

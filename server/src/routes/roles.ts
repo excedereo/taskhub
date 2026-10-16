@@ -16,6 +16,7 @@ type RoleRow = {
   create_categories: string | null
   view_categories: string | null
   created_at: number
+  position: number
   member_count: number
 }
 
@@ -29,6 +30,7 @@ const serializeRole = (r: RoleRow, defaultRoleId: number) => ({
   createCategories: r.create_categories === null ? null : (JSON.parse(r.create_categories) as number[]),
   viewCategories: r.view_categories === null ? null : (JSON.parse(r.view_categories) as number[]),
   memberCount: r.member_count,
+  position: r.position,
 })
 
 const ROLE_SELECT = `
@@ -38,9 +40,22 @@ const ROLE_SELECT = `
 const getRole = (id: number) => db.prepare(`${ROLE_SELECT} WHERE r.id = ?`).get(id) as RoleRow | undefined
 
 rolesRouter.get('/roles', (_req, res) => {
-  const rows = db.prepare(`${ROLE_SELECT} ORDER BY r.is_system DESC, r.id`).all() as RoleRow[]
+  const rows = db.prepare(`${ROLE_SELECT} ORDER BY r.is_system DESC, r.position, r.id`).all() as RoleRow[]
   const defaultRoleId = getSetting<number>('default_role_id')
   res.json(rows.map((r) => serializeRole(r, defaultRoleId)))
+})
+
+/** The hierarchy: roles top to bottom. Owner is always first and is not part of the list. */
+rolesRouter.put('/roles/order', requirePermission('manage_roles'), (req, res) => {
+  const actor = me(req)
+  const ids: unknown = req.body?.ids
+  const movable = (db.prepare('SELECT id FROM roles WHERE is_system = 0').all() as { id: number }[]).map((x) => x.id)
+  if (!Array.isArray(ids) || ids.length !== movable.length || !movable.every((id) => ids.includes(id))) throw badRequest('Send every role except Owner, in the new order')
+  transaction(() => {
+    ids.forEach((id, i) => db.prepare('UPDATE roles SET position = ? WHERE id = ?').run(i + 1, id))
+    audit(actor.id, 'role', null, 'role.reordered', {})
+  })
+  res.json({ ok: true })
 })
 
 function parseColor(value: unknown): string | null {
@@ -96,8 +111,11 @@ rolesRouter.post('/roles', requirePermission('manage_roles'), (req, res) => {
   assertNameFree(name)
 
   const id = transaction(() => {
-    const { lastInsertRowid } = db.prepare('INSERT INTO roles (name, color, permissions, create_categories, view_categories, created_at) VALUES (?, ?, ?, ?, ?, ?)')
-      .run(name, color, JSON.stringify(permissions), createCategories, viewCategories, Date.now())
+    // New roles start at the bottom of the hierarchy.
+    const { lastInsertRowid } = db.prepare(`
+      INSERT INTO roles (name, color, permissions, create_categories, view_categories, created_at, position)
+      VALUES (?, ?, ?, ?, ?, ?, (SELECT COALESCE(MAX(position), 0) + 1 FROM roles))
+    `).run(name, color, JSON.stringify(permissions), createCategories, viewCategories, Date.now())
     const id = Number(lastInsertRowid)
     audit(actor.id, 'role', id, 'role.created', { name, permissions })
     return id
