@@ -1,5 +1,4 @@
 export type Status = 'open' | 'in_progress' | 'review' | 'done'
-export type Priority = 'low' | 'medium' | 'high'
 
 export type PermissionInfo = { key: string; label: string; description: string }
 
@@ -71,7 +70,7 @@ export type Task = {
   title: string
   description: string
   status: Status
-  priority: Priority
+  priorityId: number
   creatorId: number | null
   assigneeId: number | null
   createdAt: number
@@ -86,6 +85,16 @@ export type Task = {
   position: number
   subtaskCount: number
   subtaskDone: number
+}
+
+/** Workspace priorities, most important first. */
+export type Priority = {
+  id: number
+  name: string
+  color: string
+  position: number
+  isDefault: boolean
+  taskCount: number
 }
 
 export type Label = {
@@ -138,11 +147,5 @@ export const STATUSES: { key: Status; label: string }[] = [
   { key: 'done', label: 'Done' },
 ]
 
-export const PRIORITIES: { key: Priority; label: string }[] = [
-  { key: 'high', label: 'High' },
-  { key: 'medium', label: 'Medium' },
-  { key: 'low', label: 'Low' },
-]
 
 export const statusLabel = (s: Status) => STATUSES.find((x) => x.key === s)?.label ?? s
-export const priorityLabel = (p: Priority) => PRIORITIES.find((x) => x.key === p)?.label ?? p

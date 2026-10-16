@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { X } from 'lucide-react'
-import type { Label, Me, Priority, Role, Status, User } from '../types.ts'
-import { priorityLabel, statusLabel } from '../types.ts'
+import type { Label, Me, Role, Status, User } from '../types.ts'
+import { statusLabel } from '../types.ts'
+import { useData } from '../store.tsx'
 import { avatarUrl, cx, displayName, dueInfo } from '../util.ts'
 import { CalendarClock } from 'lucide-react'
 
@@ -49,10 +50,17 @@ export function StatusIcon({ status, size = 14 }: { status: Status; size?: numbe
   )
 }
 
-export function PriorityIcon({ priority }: { priority: Priority }) {
-  const level = { low: 1, medium: 2, high: 3 }[priority]
+/**
+ * Bars (or a dot, by preference) in the priority's own colour. The number of filled bars follows
+ * the priority's place in the list: the most important gets three, the least important one.
+ */
+export function PriorityIcon({ id }: { id: number }) {
+  const { priorities } = useData()
+  const index = priorities.findIndex((p) => p.id === id)
+  const priority = priorities[index]
+  const level = priorities.length < 2 || index < 0 ? 3 : Math.round(3 - (2 * index) / (priorities.length - 1))
   return (
-    <svg className={`priority-icon priority-${priority}`} width="14" height="14" viewBox="0 0 14 14" aria-label={`${priorityLabel(priority)} priority`} role="img">
+    <svg className="priority-icon" style={{ color: priority?.color }} width="14" height="14" viewBox="0 0 14 14" aria-label={`${priority?.name ?? 'Unknown'} priority`} role="img">
       {/* Both looks are drawn; the "Priority icons" preference shows one of them via CSS. */}
       <g className="pi-bars">
         {[0, 1, 2].map((i) => (

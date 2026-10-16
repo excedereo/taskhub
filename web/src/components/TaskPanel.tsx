@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState, type DragEvent } from 'react'
 import { Archive, ArchiveRestore, Hash, ImagePlus, Plus, Trash2, X } from 'lucide-react'
 import { api, imageFiles, uploadImage } from '../api.ts'
 import { useData, useMe, useSession } from '../store.tsx'
-import { PRIORITIES, STATUSES, type Attachment, type AuditEvent, type Task } from '../types.ts'
+import { STATUSES, type Attachment, type AuditEvent, type Task } from '../types.ts'
 import { cx, displayName, formatDate, timeAgo } from '../util.ts'
 import { Avatar, ConfirmButton, DueBadge, PriorityIcon, StatusIcon, UserChip } from './ui.tsx'
 import { LabelPicker } from './LabelPicker.tsx'
@@ -28,7 +28,7 @@ let pendingSeq = 0
 export function TaskPanel({ taskId, onClose, onOpenTask, onChanged, onDeleted }: Props) {
   const me = useMe()
   const { meta } = useSession()
-  const { users, userById, roleById, categoryById, categories, can, canCreateIn, reloadCategories } = useData()
+  const { users, userById, roleById, categoryById, categories, priorities, priorityById, can, canCreateIn, reloadCategories } = useData()
   const toast = useToast()
   const [task, setTask] = useState<Task | null>(null)
   const [history, setHistory] = useState<AuditEvent[]>([])
@@ -149,7 +149,7 @@ export function TaskPanel({ taskId, onClose, onOpenTask, onChanged, onDeleted }:
     }
   }
 
-  const patch = (body: Partial<Pick<Task, 'title' | 'description' | 'status' | 'priority' | 'categoryId' | 'dueDate' | 'labelIds'>>) => mutate(() => api.patch(`/tasks/${task.id}`, body))
+  const patch = (body: Partial<Pick<Task, 'title' | 'description' | 'status' | 'priorityId' | 'categoryId' | 'dueDate' | 'labelIds'>>) => mutate(() => api.patch(`/tasks/${task.id}`, body))
   const assign = (userId: number | null) => mutate(() => api.post(`/tasks/${task.id}/assign`, { userId }))
   const take = () => mutate(() => api.post(`/tasks/${task.id}/take`))
   const removeImage = (item: GalleryItem) => mutate(() => api.del(`/attachments/${item.key.slice(1)}`))
@@ -209,7 +209,7 @@ export function TaskPanel({ taskId, onClose, onOpenTask, onChanged, onDeleted }:
     ...pending.map((p) => ({ ...p, src: p.url, pending: true })),
   ]
 
-  const ctx = { userById, roleById, categoryById, permissions: meta?.permissions ?? [] }
+  const ctx = { userById, roleById, categoryById, priorityById, permissions: meta?.permissions ?? [] }
   const category = categoryById.get(task.categoryId)
   const assigneeOptions = [
     { value: null, label: 'Unassigned', icon: <span className="avatar avatar-empty" style={{ width: 18, height: 18 }} /> },
@@ -294,10 +294,10 @@ export function TaskPanel({ taskId, onClose, onOpenTask, onChanged, onDeleted }:
               <Select
                 variant="ghost"
                 aria-label="Priority"
-                value={task.priority}
+                value={task.priorityId}
                 disabled={!canEdit}
-                onChange={(priority) => patch({ priority })}
-                options={PRIORITIES.map((p) => ({ value: p.key, label: p.label, icon: <PriorityIcon priority={p.key} /> }))}
+                onChange={(priorityId) => patch({ priorityId })}
+                options={priorities.map((p) => ({ value: p.id, label: p.name, icon: <PriorityIcon id={p.id} /> }))}
               />
             </dd>
 

@@ -2,7 +2,7 @@ import { useEffect, useState, type DragEvent, type FormEvent } from 'react'
 import { Hash } from 'lucide-react'
 import { api, imageFiles, uploadImage } from '../api.ts'
 import { useData, useMe } from '../store.tsx'
-import { PRIORITIES, type Priority, type Task } from '../types.ts'
+import type { Task } from '../types.ts'
 import { cx, displayName } from '../util.ts'
 import { Avatar, Field, Modal, PriorityIcon } from './ui.tsx'
 import { Select } from './Select.tsx'
@@ -16,14 +16,14 @@ let draftSeq = 0
 
 export function NewTaskModal({ defaultCategoryId, onClose, onCreated }: { defaultCategoryId?: number; onClose: () => void; onCreated: (task: Task) => void }) {
   const me = useMe()
-  const { categories, users, can, canCreateIn, reloadCategories } = useData()
+  const { categories, users, priorities, can, canCreateIn, reloadCategories } = useData()
   const toast = useToast()
   const active = categories.filter((c) => !c.archived && canCreateIn(c.id))
 
   const [categoryId, setCategoryId] = useState(defaultCategoryId && active.some((c) => c.id === defaultCategoryId) ? defaultCategoryId : (active[0]?.id ?? 0))
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
-  const [priority, setPriority] = useState<Priority>('medium')
+  const [priorityId, setPriorityId] = useState(() => (priorities.find((p) => p.isDefault) ?? priorities[0])?.id ?? 0)
   const [assigneeId, setAssigneeId] = useState<number | null>(null)
   const [dueDate, setDueDate] = useState('')
   const [labelIds, setLabelIds] = useState<number[]>([])
@@ -67,7 +67,7 @@ export function NewTaskModal({ defaultCategoryId, onClose, onCreated }: { defaul
     e.preventDefault()
     setBusy(true)
     try {
-      const task = await api.post<Task>('/tasks', { categoryId, title, description, priority, assigneeId, dueDate: dueDate || null, labelIds })
+      const task = await api.post<Task>('/tasks', { categoryId, title, description, priorityId: priorityId || undefined, assigneeId, dueDate: dueDate || null, labelIds })
       // One at a time, so the images keep the order they were added in.
       let uploaded = 0
       for (const d of images) {
@@ -143,9 +143,9 @@ export function NewTaskModal({ defaultCategoryId, onClose, onCreated }: { defaul
           <Field label="Priority">
             <Select
               aria-label="Priority"
-              value={priority}
-              onChange={setPriority}
-              options={PRIORITIES.map((p) => ({ value: p.key, label: p.label, icon: <PriorityIcon priority={p.key} /> }))}
+              value={priorityId}
+              onChange={setPriorityId}
+              options={priorities.map((p) => ({ value: p.id, label: p.name, icon: <PriorityIcon id={p.id} /> }))}
             />
           </Field>
           {(canAssign || canTake) && (

@@ -1,12 +1,16 @@
 import type { ReactNode } from 'react'
 import type { AuditEvent, Category, PermissionInfo, Priority, Role, Status, User } from '../types.ts'
-import { priorityLabel, statusLabel } from '../types.ts'
+import { statusLabel } from '../types.ts'
+
+// Entries written before priorities became editable store these names.
+const LEGACY_PRIORITY: Record<string, string> = { high: 'High', medium: 'Medium', low: 'Low' }
 import { displayName } from '../util.ts'
 
 export type EventContext = {
   userById: Map<number, User>
   roleById: Map<number, Role>
   categoryById: Map<number, Category>
+  priorityById?: Map<number, Priority>
   permissions: PermissionInfo[]
 }
 
@@ -91,6 +95,14 @@ export function describeEvent(e: AuditEvent, ctx: EventContext, inTask = false):
       return <>edited the label {name}</>
     case 'label.deleted':
       return <>deleted the label {name}</>
+    case 'priority.created':
+      return <>added the priority {name}</>
+    case 'priority.updated':
+      return <>edited the priority {name}</>
+    case 'priority.deleted':
+      return <>deleted the priority {name}</>
+    case 'priority.reordered':
+      return 'reordered the priorities'
     case 'category.reordered':
       return 'reordered the categories'
     case 'category.created':
@@ -142,7 +154,8 @@ export function describeEvent(e: AuditEvent, ctx: EventContext, inTask = false):
     case 'task.updated': {
       const parts: ReactNode[] = []
       if (changes.status) parts.push(<>moved{task} from <B>{statusLabel(changes.status[0] as Status)}</B> to <B>{statusLabel(changes.status[1] as Status)}</B></>)
-      if (changes.priority) parts.push(<>set priority{inTask ? '' : <> of{task}</>} to <B>{priorityLabel(changes.priority[1] as Priority)}</B></>)
+      if (changes.priority) parts.push(<>set priority{inTask ? '' : <> of{task}</>} to <B>{LEGACY_PRIORITY[String(changes.priority[1])] ?? String(changes.priority[1])}</B></>)
+      if (changes.priority_id) parts.push(<>set priority{inTask ? '' : <> of{task}</>} to <B>{ctx.priorityById?.get(changes.priority_id[1] as number)?.name ?? 'a deleted priority'}</B></>)
       if (changes.title) parts.push(<>renamed{inTask ? ' the task' : <> <B>#{e.entityId} {String(changes.title[0])}</B></>} to <B>{String(changes.title[1])}</B></>)
       if (changes.description) parts.push(<>edited the description{inTask ? '' : <> of{task}</>}</>)
       if (changes.due_date) {

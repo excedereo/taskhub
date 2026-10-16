@@ -8,6 +8,7 @@ import { Navigate } from 'react-router-dom'
 import type { Label } from '../types.ts'
 import { Select } from '../components/Select.tsx'
 import { useToast } from '../components/Toast.tsx'
+import { ColorPicker } from '../components/ColorPicker.tsx'
 import { roleOptions } from '../components/ui.tsx'
 
 /** Workspace-wide settings. Each section shows up for the permission that controls it. */
@@ -212,11 +213,7 @@ function LabelsManager() {
         <ul className="label-admin">
           {labels.map((l) => (
             <li key={l.id}>
-              <div className="swatches">
-                {LABEL_COLORS.map((c) => (
-                  <button key={c} type="button" className={cx('swatch swatch-sm', l.color === c && 'active')} style={{ background: c }} onClick={() => run(() => api.patch(`/labels/${l.id}`, { color: c }))} aria-label={`Color ${c}`} />
-                ))}
-              </div>
+              <ColorPicker small value={l.color} presets={LABEL_COLORS} onChange={(color) => color && run(() => api.patch(`/labels/${l.id}`, { color }))} />
               <input
                 className="input input-inline"
                 defaultValue={l.name}

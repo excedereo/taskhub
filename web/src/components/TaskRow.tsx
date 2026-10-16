@@ -30,7 +30,7 @@ export function TaskRow({ task: t, parent, showCategory, nested, selected, canTa
       onKeyDown={(e) => e.key === 'Enter' && onOpen(t)}
     >
       {nested && <CornerDownRight size={14} className="nest-mark" aria-hidden />}
-      <PriorityIcon priority={t.priority} />
+      <PriorityIcon id={t.priorityId} />
       <span className="task-id">#{t.id}</span>
       <StatusIcon status={t.status} />
       <span className="task-title truncate">

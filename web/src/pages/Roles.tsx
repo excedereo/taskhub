@@ -7,8 +7,8 @@ import type { Category, Role } from '../types.ts'
 import { covers, cx } from '../util.ts'
 import { ConfirmButton, Field, PageHeader } from '../components/ui.tsx'
 import { useToast } from '../components/Toast.tsx'
+import { ColorPicker } from '../components/ColorPicker.tsx'
 
-const COLORS = [null, '#e5484d', '#f76b15', '#ffc53d', '#46a758', '#12a594', '#0090ff', '#6e56cf', '#d6409f']
 
 type Draft = { name: string; color: string | null; permissions: string[]; createCategories: number[] | null; viewCategories: number[] | null }
 const NEW = 'new'
@@ -141,19 +141,7 @@ export function RolesPage() {
                 <input className="input" value={draft.name} disabled={readOnly} maxLength={32} onChange={(e) => setDraft({ ...draft, name: e.target.value })} placeholder="e.g. Developer" />
               </Field>
               <Field label="Color">
-                <div className="swatches">
-                  {COLORS.map((c) => (
-                    <button
-                      key={c ?? 'none'}
-                      type="button"
-                      disabled={readOnly}
-                      className={cx('swatch', draft.color === c && 'active', !c && 'swatch-none')}
-                      style={c ? { background: c } : undefined}
-                      onClick={() => setDraft({ ...draft, color: c })}
-                      aria-label={c ?? 'No color'}
-                    />
-                  ))}
-                </div>
+                <ColorPicker allowNone value={draft.color} disabled={readOnly} onChange={(color) => setDraft({ ...draft, color })} />
               </Field>
             </div>
 

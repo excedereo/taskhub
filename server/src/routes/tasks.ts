@@ -6,11 +6,11 @@ import { badRequest, can, canSeeCategory, forbidden, idParam, me, notFound, oneO
 import { listAttachments, removeFiles } from './attachments.ts'
 import { canCreateIn } from '../permissions.ts'
 import { parseLabelIds } from './labels.ts'
+import { parsePriorityId } from './priorities.ts'
 
 export const tasksRouter = Router()
 
 export const STATUSES = ['open', 'in_progress', 'review', 'done'] as const
-export const PRIORITIES = ['low', 'medium', 'high'] as const
 
 export type TaskRow = {
   id: number
@@ -20,7 +20,7 @@ export type TaskRow = {
   title: string
   description: string
   status: (typeof STATUSES)[number]
-  priority: (typeof PRIORITIES)[number]
+  priority_id: number
   creator_id: number | null
   assignee_id: number | null
   created_at: number
@@ -51,7 +51,7 @@ export const serializeTask = (t: TaskRow) => ({
   title: t.title,
   description: t.description,
   status: t.status,
-  priority: t.priority,
+  priorityId: t.priority_id,
   creatorId: t.creator_id,
   assigneeId: t.assignee_id,
   createdAt: t.created_at,
@@ -102,7 +102,7 @@ export const canEdit = (req: Request, task: TaskRow) => can(req, 'edit_tasks') |
 /** People working on a task: they may move it and attach files. */
 export const canWork = (req: Request, task: TaskRow) => canEdit(req, task) || task.assignee_id === me(req).id
 
-type Editable = Partial<Pick<TaskRow, 'category_id' | 'title' | 'description' | 'status' | 'priority' | 'assignee_id' | 'due_date'>>
+type Editable = Partial<Pick<TaskRow, 'category_id' | 'title' | 'description' | 'status' | 'priority_id' | 'assignee_id' | 'due_date'>>
 
 /** null, or a real calendar day written as YYYY-MM-DD. */
 function parseDueDate(value: unknown): string | null {
@@ -129,9 +129,9 @@ function applyChanges(actorId: number, task: TaskRow, next: Editable, action = '
 
   transaction(() => {
     db.prepare(`
-      UPDATE tasks SET category_id = ?, title = ?, description = ?, status = ?, priority = ?, assignee_id = ?, due_date = ?, updated_at = ?, closed_at = ?
+      UPDATE tasks SET category_id = ?, title = ?, description = ?, status = ?, priority_id = ?, assignee_id = ?, due_date = ?, updated_at = ?, closed_at = ?
       WHERE id = ?
-    `).run(merged.category_id, merged.title, merged.description, merged.status, merged.priority, merged.assignee_id, merged.due_date, now, merged.closed_at, task.id)
+    `).run(merged.category_id, merged.title, merged.description, merged.status, merged.priority_id, merged.assignee_id, merged.due_date, now, merged.closed_at, task.id)
     if (changes.labels) {
       db.prepare('DELETE FROM task_labels WHERE task_id = ?').run(task.id)
       for (const id of labels!) db.prepare('INSERT INTO task_labels (task_id, label_id) VALUES (?, ?)').run(task.id, id)
@@ -196,7 +196,7 @@ tasksRouter.get('/tasks', (req, res) => {
     ORDER BY
       ${showArchived ? 'tasks.archived_at DESC,' : ''}
       CASE tasks.status WHEN 'in_progress' THEN 0 WHEN 'review' THEN 1 WHEN 'open' THEN 2 ELSE 3 END,
-      CASE tasks.priority WHEN 'high' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END,
+      (SELECT p.position FROM priorities p WHERE p.id = tasks.priority_id),
       tasks.updated_at DESC
     LIMIT 2000
   `).all(...params) as TaskRow[]
@@ -238,7 +238,7 @@ tasksRouter.post('/tasks', requirePermission('create_tasks'), (req, res) => {
 
   const title = text(req.body?.title, 'Title', { min: 1, max: 200 })
   const description = text(req.body?.description ?? '', 'Description', { max: 20000 })
-  const priority = oneOf(req.body?.priority ?? 'medium', 'Priority', PRIORITIES)
+  const priorityId = parsePriorityId(req.body?.priorityId)
   const assigneeId = req.body?.assigneeId === undefined ? null : optionalId(req.body.assigneeId, 'Assignee')
   const dueDate = req.body?.dueDate === undefined ? null : parseDueDate(req.body.dueDate)
   const labelIds = req.body?.labelIds === undefined ? [] : parseLabelIds(req.body.labelIds)
@@ -251,12 +251,12 @@ tasksRouter.post('/tasks', requirePermission('create_tasks'), (req, res) => {
   const id = transaction(() => {
     const now = Date.now()
     const { lastInsertRowid } = db.prepare(`
-      INSERT INTO tasks (category_id, parent_id, position, title, description, priority, creator_id, assignee_id, due_date, created_at, updated_at)
+      INSERT INTO tasks (category_id, parent_id, position, title, description, priority_id, creator_id, assignee_id, due_date, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(categoryId, parentId, nextPosition(categoryId, parentId), title, description, priority, actor.id, assigneeId, dueDate, now, now)
+    `).run(categoryId, parentId, nextPosition(categoryId, parentId), title, description, priorityId, actor.id, assigneeId, dueDate, now, now)
     const id = Number(lastInsertRowid)
     for (const labelId of labelIds) db.prepare('INSERT INTO task_labels (task_id, label_id) VALUES (?, ?)').run(id, labelId)
-    audit(actor.id, 'task', id, 'task.created', { title, categoryId, priority, assigneeId, parentId })
+    audit(actor.id, 'task', id, 'task.created', { title, categoryId, priorityId, assigneeId, parentId })
     if (parentId) {
       const parentTitle = (db.prepare('SELECT title FROM tasks WHERE id = ?').get(parentId) as { title: string }).title
       audit(actor.id, 'task', parentId, 'task.subtask_added', { title: parentTitle, subtaskId: id, subtaskTitle: title })
@@ -272,13 +272,13 @@ tasksRouter.patch('/tasks/:id', (req, res) => {
   const body = req.body ?? {}
   const next: Editable = {}
 
-  const editsContent = ['title', 'description', 'priority', 'categoryId', 'dueDate', 'labelIds'].some((k) => body[k] !== undefined)
+  const editsContent = ['title', 'description', 'priorityId', 'categoryId', 'dueDate', 'labelIds'].some((k) => body[k] !== undefined)
   if (editsContent && !canEdit(req, task)) throw forbidden('Only the author or someone with "Edit any task" can edit this task')
   if (body.status !== undefined && !canWork(req, task)) throw forbidden('Only the assignee, the author or an editor can change the status')
 
   if (body.title !== undefined) next.title = text(body.title, 'Title', { min: 1, max: 200 })
   if (body.description !== undefined) next.description = text(body.description, 'Description', { max: 20000 })
-  if (body.priority !== undefined) next.priority = oneOf(body.priority, 'Priority', PRIORITIES)
+  if (body.priorityId !== undefined) next.priority_id = parsePriorityId(body.priorityId)
   if (body.status !== undefined) next.status = oneOf(body.status, 'Status', STATUSES)
   if (body.dueDate !== undefined) next.due_date = parseDueDate(body.dueDate)
   const labels = body.labelIds === undefined ? undefined : parseLabelIds(body.labelIds)

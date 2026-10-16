@@ -1,5 +1,7 @@
 import { useState } from 'react'
-import { Check } from 'lucide-react'
+import { Check, Settings2 } from 'lucide-react'
+import { useData } from '../store.tsx'
+import { PrioritiesModal } from '../components/PrioritiesModal.tsx'
 import type { ReactNode } from 'react'
 import { PageHeader, PriorityIcon } from '../components/ui.tsx'
 import { readPrefs, savePrefs, type Prefs, type ThemeChoice } from '../prefs.ts'
@@ -14,6 +16,9 @@ const THEMES: { key: ThemeChoice; label: string; hint: string; swatch: string[] 
 
 export function PreferencesPage() {
   const [prefs, setPrefs] = useState<Prefs>(readPrefs)
+  const [editingPriorities, setEditingPriorities] = useState(false)
+  const { priorities, can } = useData()
+  const top = priorities[0]
   const update = (patch: Partial<Prefs>) => {
     // Start from what is stored, so quick successive changes never overwrite each other.
     const next = { ...readPrefs(), ...patch }
@@ -56,27 +61,36 @@ export function PreferencesPage() {
         <PrefRow label="Animations" hint="Sliding panels, fades and glows" value={prefs.motion} onChange={(motion) => update({ motion })} options={[['full', 'On'], ['reduced', 'Reduced']]} />
         <PrefRow
           label="Priority icons"
-          hint="How high, medium and low are drawn"
+          hint="How priorities are drawn next to tasks"
           value={prefs.priority}
           onChange={(priority) => update({ priority })}
+          action={
+            can('manage_settings') && (
+              <button type="button" className="icon-btn icon-btn-sm" onClick={() => setEditingPriorities(true)} aria-label="Edit priorities" title="Edit priorities">
+                <Settings2 size={14} />
+              </button>
+            )
+          }
           options={[
-            ['bars', <span key="b" className="pref-icons" data-style="bars"><PriorityIcon priority="high" /> Bars</span>],
-            ['dots', <span key="d" className="pref-icons" data-style="dots"><PriorityIcon priority="high" /><PriorityIcon priority="medium" /><PriorityIcon priority="low" /> Dots</span>],
+            ['bars', <span key="b" className="pref-icons" data-style="bars">{top && <PriorityIcon id={top.id} />} Bars</span>],
+            ['dots', <span key="d" className="pref-icons" data-style="dots">{top && <PriorityIcon id={top.id} />} Dots</span>],
           ]}
         />
       </section>
+      {editingPriorities && <PrioritiesModal onClose={() => setEditingPriorities(false)} />}
     </div>
   )
 }
 
 /** One compact line per small preference: label and hint on the left, a small switch on the right. */
-function PrefRow<T extends string>({ label, hint, value, options, onChange }: { label: string; hint: string; value: T; options: [T, ReactNode][]; onChange: (v: T) => void }) {
+function PrefRow<T extends string>({ label, hint, value, options, onChange, action }: { label: string; hint: string; value: T; options: [T, ReactNode][]; onChange: (v: T) => void; action?: ReactNode }) {
   return (
     <div className="pref-row">
-      <span className="stack min-w-0">
+      <span className="stack min-w-0 grow">
         <span>{label}</span>
         <span className="muted small">{hint}</span>
       </span>
+      {action}
       <div className="segmented segmented-sm">
         {options.map(([key, text]) => (
           <button key={key} type="button" className={cx(value === key && 'active')} onClick={() => onChange(key)}>

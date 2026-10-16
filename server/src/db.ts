@@ -158,6 +158,25 @@ const migrations: string[] = [
   ALTER TABLE categories ADD COLUMN position REAL NOT NULL DEFAULT 0;
   UPDATE categories SET position = id;
   `,
+  `
+  -- Priorities become editable. The old text column stays (its CHECK cannot be dropped in place)
+  -- but is no longer read; priority_id is the source of truth.
+  CREATE TABLE priorities (
+    id         INTEGER PRIMARY KEY,
+    name       TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    color      TEXT NOT NULL,
+    position   REAL NOT NULL,
+    is_default INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL
+  );
+  INSERT INTO priorities (id, name, color, position, is_default, created_at) VALUES
+    (1, 'High', '#dc2626', 1, 0, unixepoch() * 1000),
+    (2, 'Medium', '#ea580c', 2, 1, unixepoch() * 1000),
+    (3, 'Low', '#a1a1aa', 3, 0, unixepoch() * 1000);
+  ALTER TABLE tasks ADD COLUMN priority_id INTEGER REFERENCES priorities(id);
+  UPDATE tasks SET priority_id = CASE priority WHEN 'high' THEN 1 WHEN 'low' THEN 3 ELSE 2 END;
+  CREATE INDEX tasks_priority ON tasks(priority_id);
+  `,
 ]
 
 const current = (db.prepare('PRAGMA user_version').get() as { user_version: number }).user_version

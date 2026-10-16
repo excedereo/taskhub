@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { api, UNAUTHORIZED_EVENT } from './api.ts'
-import type { Category, Label, Me, Meta, Role, User } from './types.ts'
+import type { Category, Label, Me, Meta, Priority, Role, User } from './types.ts'
 
 type Session = {
   meta: Meta | null
@@ -16,6 +16,9 @@ type Data = {
   categories: Category[]
   labels: Label[]
   labelById: Map<number, Label>
+  priorities: Priority[]
+  priorityById: Map<number, Priority>
+  reloadPriorities: () => Promise<void>
   reloadLabels: () => Promise<void>
   userById: Map<number, User>
   roleById: Map<number, Role>
@@ -74,11 +77,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [roles, setRoles] = useState<Role[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [labels, setLabels] = useState<Label[]>([])
+  const [priorities, setPriorities] = useState<Priority[]>([])
 
   const reloadUsers = useCallback(async () => setUsers(await api.get<User[]>('/users')), [])
   const reloadRoles = useCallback(async () => setRoles(await api.get<Role[]>('/roles')), [])
   const reloadCategories = useCallback(async () => setCategories(await api.get<Category[]>('/categories')), [])
   const reloadLabels = useCallback(async () => setLabels(await api.get<Label[]>('/labels')), [])
+  const reloadPriorities = useCallback(async () => setPriorities(await api.get<Priority[]>('/priorities')), [])
 
   useEffect(() => {
     if (!me) return
@@ -86,7 +91,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
     reloadRoles()
     reloadCategories()
     reloadLabels()
-  }, [me, reloadUsers, reloadRoles, reloadCategories, reloadLabels])
+    reloadPriorities()
+  }, [me, reloadUsers, reloadRoles, reloadCategories, reloadLabels, reloadPriorities])
 
   const can = useCallback(
     (perm: string) => Boolean(me && (me.permissions.includes('admin') || me.permissions.includes(perm))),
@@ -106,6 +112,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       categories,
       labels,
       labelById: new Map(labels.map((l) => [l.id, l])),
+      priorities,
+      priorityById: new Map(priorities.map((p) => [p.id, p])),
+      reloadPriorities,
       reloadLabels,
       userById: new Map(users.map((u) => [u.id, u])),
       roleById: new Map(roles.map((r) => [r.id, r])),
@@ -116,7 +125,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       can,
       canCreateIn,
     }),
-    [users, roles, categories, labels, reloadUsers, reloadRoles, reloadCategories, reloadLabels, can, canCreateIn],
+    [users, roles, categories, labels, priorities, reloadUsers, reloadRoles, reloadCategories, reloadLabels, reloadPriorities, can, canCreateIn],
   )
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>
 }

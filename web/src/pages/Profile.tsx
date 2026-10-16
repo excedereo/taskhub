@@ -71,7 +71,7 @@ export function ProfilePage() {
             {active.map((t) => (
               <li key={t.id}>
                 <Link className="task-row" to={`/tasks?assignee=me&task=${t.id}`}>
-                  <PriorityIcon priority={t.priority} />
+                  <PriorityIcon id={t.priorityId} />
                   <span className="task-id">#{t.id}</span>
                   <StatusIcon status={t.status} />
                   <span className="task-title truncate">{t.title}</span>

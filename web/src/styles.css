@@ -1326,3 +1326,89 @@ body.dragging * { cursor: grabbing !important; user-select: none; }
 .nav-arrange-item.is-dragging { box-shadow: var(--shadow); border-color: var(--border-strong); }
 .nav-arrange-item .grip { margin-left: 0; height: 24px; }
 .nav-arrange-actions { display: flex; justify-content: flex-end; gap: 6px; padding: 8px 0 4px; }
+
+/* ---------- Color picker ---------- */
+
+.swatch-rainbow {
+  position: relative;
+  display: grid;
+  place-items: center;
+  background: conic-gradient(#ff3b3b, #ffb13b, #f5ff3b, #3bff6b, #3bd8ff, #3b5bff, #c13bff, #ff3b9d, #ff3b3b);
+  box-shadow: none;
+}
+.swatch-rainbow::after { content: ''; position: absolute; inset: 3px; border-radius: 50%; background: var(--surface); }
+.swatch-rainbow:not(:has(.swatch-custom))::after { inset: 4px; }
+.swatch-custom { position: relative; z-index: 1; width: calc(100% - 8px); height: calc(100% - 8px); border-radius: 50%; }
+.swatch-sm.swatch-rainbow::after { inset: 2px; }
+
+.color-pop {
+  position: fixed;
+  z-index: 80;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 248px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+  animation: pop 0.12s ease;
+}
+.color-sv {
+  position: relative;
+  height: 150px;
+  border-radius: var(--radius-sm);
+  background-image: linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, transparent);
+  cursor: crosshair;
+  touch-action: none;
+}
+.color-sv-thumb,
+.color-hue-thumb {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.25), 0 2px 6px rgb(0 0 0 / 0.3);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+.color-hue {
+  position: relative;
+  height: 12px;
+  border-radius: 999px;
+  background: linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00);
+  cursor: ew-resize;
+  touch-action: none;
+}
+.color-hue-thumb { top: 50%; }
+.color-row { display: flex; align-items: center; gap: 8px; }
+.color-preview { flex-shrink: 0; width: 30px; height: 30px; border-radius: var(--radius-sm); box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.12); }
+.color-hex { flex: 1; min-width: 0; width: 100%; font-family: var(--mono); text-transform: lowercase; }
+.color-actions { display: flex; justify-content: flex-end; gap: 6px; }
+
+/* ---------- Priorities editor ---------- */
+
+.priorities-hint { margin-bottom: 12px; }
+.priority-admin { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.priority-admin li {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto auto;
+  grid-template-areas: 'grip icon name star del' '. . colors colors colors';
+  align-items: center;
+  gap: 6px 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  transition: transform 0.18s ease;
+}
+.priority-admin li.is-dragging { box-shadow: var(--shadow); border-color: var(--border-strong); }
+.priority-admin .grip { grid-area: grip; }
+.priority-admin .priority-icon { grid-area: icon; }
+.priority-admin .input-inline { grid-area: name; }
+.priority-admin .star-on { color: #eab308; }
+.priority-colors { grid-area: colors; }
+.priority-del-placeholder { width: 1px; }
+.priorities-add .input { flex: 1; }
