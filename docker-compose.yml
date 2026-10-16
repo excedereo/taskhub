@@ -5,8 +5,10 @@ services:
     env_file: .env
     environment:
       DATABASE_PATH: /data/taskhub.db
+    # Reachable only from this machine: put a reverse proxy with HTTPS in front.
+    # Docker bypasses ufw/iptables rules, so publishing on 0.0.0.0 would expose it to everyone.
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     volumes:
       - taskhub-data:/data
 

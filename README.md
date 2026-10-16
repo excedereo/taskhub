@@ -33,7 +33,15 @@ A small self-hosted task tracker for dev teams. People sign in with Discord, tas
 
 Data is stored in the `taskhub-data` Docker volume. Back it up by copying `/data/taskhub.db` out of the container.
 
-Put it behind a reverse proxy with HTTPS (Caddy, nginx, Traefik). When `PUBLIC_URL` starts with `https://`, cookies are marked secure automatically.
+The container only listens on `127.0.0.1:3000`, so put a reverse proxy with HTTPS in front of it. With Caddy the whole config is:
+
+```
+taskhub.example.com {
+	reverse_proxy 127.0.0.1:3000
+}
+```
+
+When `PUBLIC_URL` starts with `https://`, cookies are marked secure automatically.
 
 ## Running without Docker
 
