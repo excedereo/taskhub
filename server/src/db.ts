@@ -198,6 +198,18 @@ const migrations: string[] = [
   CREATE INDEX tasks_status ON tasks(status_id);
   ALTER TABLE priorities ADD COLUMN icon TEXT;
   `,
+  `
+  -- Two more defaults: "Acknowledged" (seen it, will pick it up soon) right after the last
+  -- not-started status, and "Light" as the least important priority. Skipped if the name exists.
+  INSERT INTO statuses (name, color, icon, type, position, created_at)
+    SELECT 'Acknowledged', '#0090ff', 'thumbs-up', 'todo',
+           COALESCE((SELECT MAX(position) FROM statuses WHERE type = 'todo'), 0) + 0.5, unixepoch() * 1000
+    WHERE NOT EXISTS (SELECT 1 FROM statuses WHERE name = 'Acknowledged');
+  INSERT INTO priorities (name, color, icon, position, is_default, created_at)
+    SELECT 'Light', '#12a594', 'chevron-down',
+           COALESCE((SELECT MAX(position) FROM priorities), 0) + 1, 0, unixepoch() * 1000
+    WHERE NOT EXISTS (SELECT 1 FROM priorities WHERE name = 'Light');
+  `,
 ]
 
 const current = (db.prepare('PRAGMA user_version').get() as { user_version: number }).user_version
