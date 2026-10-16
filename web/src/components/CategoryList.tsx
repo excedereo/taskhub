@@ -6,6 +6,7 @@ import { cx } from '../util.ts'
 import { StatusIcon } from './ui.tsx'
 import { TaskRow } from './TaskRow.tsx'
 import { useToast } from './Toast.tsx'
+import { useData } from '../store.tsx'
 import { moveItem, useDragSort } from './useDragSort.ts'
 
 type Entry = { task: Task; kids: Task[] }
@@ -54,6 +55,7 @@ type ListProps = {
  * and everything that is done collected at the bottom under "Finished", most recent first.
  */
 export function CategoryList({ tasks, sections, matches, showEmptySections, openTaskId, canTake, onOpen, onTake }: ListProps) {
+  const { isDone } = useData()
   const blocks = buildBlocks(tasks, sections)
   const visibleRows = (entries: Entry[]) =>
     entries.map((e) => ({ ...e, kids: e.kids.filter(matches) })).filter((e) => matches(e.task) || e.kids.length)
@@ -69,16 +71,16 @@ export function CategoryList({ tasks, sections, matches, showEmptySections, open
       )),
     ])
   const finished = visibleRows(
-    blocks.flatMap((b) => b.entries).filter((e) => e.task.status === 'done'),
+    blocks.flatMap((b) => b.entries).filter((e) => isDone(e.task)),
   ).sort((a, b) => (b.task.closedAt ?? 0) - (a.task.closedAt ?? 0))
 
   return (
     <div className="stages">
       {blocks.map((b) => {
-        const rows = visibleRows(b.entries.filter((e) => e.task.status !== 'done'))
+        const rows = visibleRows(b.entries.filter((e) => !isDone(e.task)))
         if (!rows.length && !(b.section && showEmptySections)) return null
         // The counter still covers finished tasks, so a section shows how far along it is.
-        const done = b.entries.filter((e) => e.task.status === 'done').length
+        const done = b.entries.filter((e) => isDone(e.task)).length
 
         return (
           <section key={b.section?.id ?? 'top'} className="stage">
@@ -130,14 +132,15 @@ function Grip({ label, ...props }: { label: string } & ReturnType<ReturnType<typ
 
 /** Subtasks reorder only inside their parent, so each parent gets its own sortable list. */
 function KidList({ kids, onReorder }: { kids: Task[]; onReorder: (kids: Task[]) => void }) {
+  const { isDone } = useData()
   const sort = useDragSort(kids.length, (from, to) => onReorder(moveItem(kids, from, to)))
   return (
     <ul className="arrange-kids">
       {kids.map((k, i) => (
-        <li key={k.id} ref={sort.ref(i)} style={sort.style(i)} className={cx('arrange-row arrange-kid', k.status === 'done' && 'task-row-done', sort.dragging === i && 'is-dragging')}>
+        <li key={k.id} ref={sort.ref(i)} style={sort.style(i)} className={cx('arrange-row arrange-kid', isDone(k) && 'task-row-done', sort.dragging === i && 'is-dragging')}>
           <Grip label={`Drag subtask ${k.title}`} {...sort.handle(i)} />
           <CornerDownRight size={14} className="nest-mark" />
-          <StatusIcon status={k.status} />
+          <StatusIcon id={k.statusId} />
           <span className="task-id">#{k.id}</span>
           <span className="task-title truncate">{k.title}</span>
         </li>
@@ -148,6 +151,7 @@ function KidList({ kids, onReorder }: { kids: Task[]; onReorder: (kids: Task[]) 
 
 /** Edit mode for the manual order: drag rows by their handle, saved in one request. */
 export function ArrangeList({ categoryId, sections, onSaved, onCancel }: { categoryId: number; sections: Section[]; onSaved: (s: Section[]) => void; onCancel: () => void }) {
+  const { isDone } = useData()
   const toast = useToast()
   const [draft, setDraft] = useState<DraftItem[] | null>(null)
   const [focusKey, setFocusKey] = useState<string | null>(null)
@@ -245,9 +249,9 @@ export function ArrangeList({ categoryId, sections, onSaved, onCancel }: { categ
 
           return (
             <li key={item.key} ref={sort.ref(i)} style={sort.style(i)} className={cx('arrange-item', dragging && 'is-dragging')}>
-              <div className={cx('arrange-row', item.task.status === 'done' && 'task-row-done')}>
+              <div className={cx('arrange-row', isDone(item.task) && 'task-row-done')}>
                 <Grip label={`Drag task ${item.task.title}`} {...sort.handle(i)} />
-                <StatusIcon status={item.task.status} />
+                <StatusIcon id={item.task.statusId} />
                 <span className="task-id">#{item.task.id}</span>
                 <span className="task-title truncate">{item.task.title}</span>
                 <button className="btn btn-sm btn-ghost arrange-insert" onClick={() => insertSection(i)} title="Insert a section above this task">

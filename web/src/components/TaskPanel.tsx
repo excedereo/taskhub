@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState, type DragEvent } from 'react'
 import { Archive, ArchiveRestore, Hash, ImagePlus, Plus, Trash2, X } from 'lucide-react'
 import { api, imageFiles, uploadImage } from '../api.ts'
 import { useData, useMe, useSession } from '../store.tsx'
-import { STATUSES, type Attachment, type AuditEvent, type Task } from '../types.ts'
+import type { Attachment, AuditEvent, Task } from '../types.ts'
 import { cx, displayName, formatDate, timeAgo } from '../util.ts'
 import { Avatar, ConfirmButton, DueBadge, PriorityIcon, StatusIcon, UserChip } from './ui.tsx'
 import { LabelPicker } from './LabelPicker.tsx'
@@ -28,7 +28,7 @@ let pendingSeq = 0
 export function TaskPanel({ taskId, onClose, onOpenTask, onChanged, onDeleted }: Props) {
   const me = useMe()
   const { meta } = useSession()
-  const { users, userById, roleById, categoryById, categories, priorities, priorityById, can, canCreateIn, reloadCategories } = useData()
+  const { users, userById, roleById, categoryById, categories, priorities, priorityById, statuses, statusById, isDone, firstStatus, can, canCreateIn, reloadCategories } = useData()
   const toast = useToast()
   const [task, setTask] = useState<Task | null>(null)
   const [history, setHistory] = useState<AuditEvent[]>([])
@@ -134,7 +134,7 @@ export function TaskPanel({ taskId, onClose, onOpenTask, onChanged, onDeleted }:
   }
 
   const canAssign = can('assign_tasks')
-  const canTake = (can('take_tasks') || canAssign) && task.assigneeId === null && task.status !== 'done'
+  const canTake = (can('take_tasks') || canAssign) && task.assigneeId === null && !isDone(task)
 
   async function mutate(request: () => Promise<unknown>) {
     try {
@@ -149,13 +149,16 @@ export function TaskPanel({ taskId, onClose, onOpenTask, onChanged, onDeleted }:
     }
   }
 
-  const patch = (body: Partial<Pick<Task, 'title' | 'description' | 'status' | 'priorityId' | 'categoryId' | 'dueDate' | 'labelIds'>>) => mutate(() => api.patch(`/tasks/${task.id}`, body))
+  const patch = (body: Partial<Pick<Task, 'title' | 'description' | 'statusId' | 'priorityId' | 'categoryId' | 'dueDate' | 'labelIds'>>) => mutate(() => api.patch(`/tasks/${task.id}`, body))
   const assign = (userId: number | null) => mutate(() => api.post(`/tasks/${task.id}/assign`, { userId }))
   const take = () => mutate(() => api.post(`/tasks/${task.id}/take`))
   const removeImage = (item: GalleryItem) => mutate(() => api.del(`/attachments/${item.key.slice(1)}`))
   const setArchived = (archived: boolean) =>
     mutate(() => api.post(`/tasks/${task.id}/archive`, { archived })).then((ok) => ok && toast.info(archived ? 'Task archived' : 'Task restored'))
-  const toggleSubtask =(s: Task) => mutate(() => api.patch(`/tasks/${s.id}`, { status: s.status === 'done' ? 'open' : 'done' }))
+  const toggleSubtask = (s: Task) => {
+    const target = firstStatus(isDone(s) ? 'todo' : 'done')
+    if (target) mutate(() => api.patch(`/tasks/${s.id}`, { statusId: target.id }))
+  }
   const addSubtask = () => {
     const value = newSubtask.trim()
     if (!value) return
@@ -209,7 +212,7 @@ export function TaskPanel({ taskId, onClose, onOpenTask, onChanged, onDeleted }:
     ...pending.map((p) => ({ ...p, src: p.url, pending: true })),
   ]
 
-  const ctx = { userById, roleById, categoryById, priorityById, permissions: meta?.permissions ?? [] }
+  const ctx = { userById, roleById, categoryById, priorityById, statusById, permissions: meta?.permissions ?? [] }
   const category = categoryById.get(task.categoryId)
   const assigneeOptions = [
     { value: null, label: 'Unassigned', icon: <span className="avatar avatar-empty" style={{ width: 18, height: 18 }} /> },
@@ -282,10 +285,10 @@ export function TaskPanel({ taskId, onClose, onOpenTask, onChanged, onDeleted }:
               <Select
                 variant="ghost"
                 aria-label="Status"
-                value={task.status}
+                value={task.statusId}
                 disabled={!canWork}
-                onChange={(status) => patch({ status })}
-                options={STATUSES.map((s) => ({ value: s.key, label: s.label, icon: <StatusIcon status={s.key} /> }))}
+                onChange={(statusId) => patch({ statusId })}
+                options={statuses.map((s) => ({ value: s.id, label: s.name, icon: <StatusIcon id={s.id} /> }))}
               />
             </dd>
 
@@ -351,7 +354,7 @@ export function TaskPanel({ taskId, onClose, onOpenTask, onChanged, onDeleted }:
               ) : !task.dueDate ? (
                 <span className="muted">None</span>
               ) : null}
-              <DueBadge due={task.dueDate} done={task.status === 'done'} />
+              <DueBadge due={task.dueDate} done={isDone(task)} />
             </dd>
 
             <dt>Labels</dt>
@@ -399,20 +402,20 @@ export function TaskPanel({ taskId, onClose, onOpenTask, onChanged, onDeleted }:
                 Subtasks{' '}
                 {subtasks.length > 0 && (
                   <span className="muted">
-                    {subtasks.filter((s) => s.status === 'done').length}/{subtasks.length}
+                    {subtasks.filter(isDone).length}/{subtasks.length}
                   </span>
                 )}
               </h3>
               {subtasks.length > 0 && (
                 <div className="progress" aria-hidden>
-                  <span style={{ width: `${(subtasks.filter((s) => s.status === 'done').length / subtasks.length) * 100}%` }} />
+                  <span style={{ width: `${(subtasks.filter(isDone).length / subtasks.length) * 100}%` }} />
                 </div>
               )}
               <ul className="subtasks">
                 {subtasks.map((s) => (
-                  <li key={s.id} className={cx('subtask', s.status === 'done' && 'task-row-done')}>
-                    <button className="subtask-check" onClick={() => toggleSubtask(s)} title={s.status === 'done' ? 'Mark as open' : 'Mark as done'} aria-label={s.status === 'done' ? 'Mark as open' : 'Mark as done'}>
-                      <StatusIcon status={s.status} size={16} />
+                  <li key={s.id} className={cx('subtask', isDone(s) && 'task-row-done')}>
+                    <button className="subtask-check" onClick={() => toggleSubtask(s)} title={isDone(s) ? 'Mark as not done' : 'Mark as done'} aria-label={isDone(s) ? 'Mark as not done' : 'Mark as done'}>
+                      <StatusIcon id={s.statusId} size={16} />
                     </button>
                     <button className="subtask-title" onClick={() => onOpenTask(s.id)}>
                       <span className="truncate">{s.title}</span>

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { X } from 'lucide-react'
-import type { Label, Me, Role, Status, User } from '../types.ts'
-import { statusLabel } from '../types.ts'
+import type { Label, Me, Role, User } from '../types.ts'
+import { ICONS } from '../icons.ts'
 import { useData } from '../store.tsx'
 import { avatarUrl, cx, displayName, dueInfo } from '../util.ts'
 import { CalendarClock } from 'lucide-react'
@@ -26,49 +26,66 @@ export function UserChip({ user, size = 20 }: { user: User | undefined | null; s
   )
 }
 
-/** Ring that fills up as the task moves forward, done is a solid check. */
-export function StatusIcon({ status, size = 14 }: { status: Status; size?: number }) {
+/**
+ * A status in one of three looks, picked per person (rings, dots or icons); CSS shows one.
+ * Rings follow the status type: empty for not started, partly filled while in progress
+ * (fuller for later active statuses), a solid check when done.
+ */
+export function StatusIcon({ id, size = 14 }: { id: number; size?: number }) {
+  const { statuses, statusById } = useData()
+  const status = statusById.get(id)
+  const color = status?.color ?? 'var(--text-faint)'
+  const active = statuses.filter((s) => s.type === 'active')
+  const index = status ? active.findIndex((s) => s.id === status.id) : -1
+  const fill = !status || status.type === 'todo' ? 0 : status.type === 'done' ? 1 : 0.5 + (active.length > 1 ? (0.25 * index) / (active.length - 1) : 0)
   // The inner pie is a fat stroke on a small circle: radius 2 + half of width 4 reaches r=4.
   const pie = 2 * Math.PI * 2
-  const fill = { open: 0, in_progress: 0.5, review: 0.75, done: 1 }[status]
+  const Icon = ICONS[status?.icon ?? ''] ?? ICONS[status?.type === 'done' ? 'circle-check' : status?.type === 'active' ? 'loader' : 'circle-dashed']
   return (
-    <svg className={`status-icon status-${status}`} width={size} height={size} viewBox="0 0 14 14" aria-label={statusLabel(status)} role="img">
-      {status === 'done' ? (
-        <>
-          <circle cx="7" cy="7" r="6.5" fill="currentColor" />
-          <path d="M4.3 7.2l1.8 1.8 3.6-3.8" fill="none" stroke="var(--bg)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        </>
-      ) : (
-        <>
-          <circle cx="7" cy="7" r="6" fill="none" stroke="currentColor" strokeWidth="1.5" strokeDasharray={status === 'open' ? '2 1.6' : undefined} />
-          {fill > 0 && (
-            <circle cx="7" cy="7" r="2" fill="none" stroke="currentColor" strokeWidth="4" strokeDasharray={`${pie * fill} ${pie}`} transform="rotate(-90 7 7)" />
-          )}
-        </>
-      )}
-    </svg>
+    <span className="status-icon" style={{ color, width: size, height: size }} role="img" aria-label={status?.name ?? 'Unknown status'}>
+      <svg className="si-ring" width={size} height={size} viewBox="0 0 14 14">
+        {fill === 1 ? (
+          <>
+            <circle cx="7" cy="7" r="6.5" fill="currentColor" />
+            <path d="M4.3 7.2l1.8 1.8 3.6-3.8" fill="none" stroke="var(--bg)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </>
+        ) : (
+          <>
+            <circle cx="7" cy="7" r="6" fill="none" stroke="currentColor" strokeWidth="1.5" strokeDasharray={fill === 0 ? '2 1.6' : undefined} />
+            {fill > 0 && <circle cx="7" cy="7" r="2" fill="none" stroke="currentColor" strokeWidth="4" strokeDasharray={`${pie * fill} ${pie}`} transform="rotate(-90 7 7)" />}
+          </>
+        )}
+      </svg>
+      <svg className="si-dot" width={size} height={size} viewBox="0 0 14 14">
+        <circle cx="7" cy="7" r="5" fill="currentColor" />
+      </svg>
+      <Icon className="si-icon" size={size} strokeWidth={2.25} />
+    </span>
   )
 }
 
 /**
- * Bars (or a dot, by preference) in the priority's own colour. The number of filled bars follows
- * the priority's place in the list: the most important gets three, the least important one.
+ * A priority as bars, a dot or its icon (per-person preference), in the priority's colour.
+ * The number of filled bars follows its place in the list: the most important gets three.
  */
 export function PriorityIcon({ id }: { id: number }) {
   const { priorities } = useData()
   const index = priorities.findIndex((p) => p.id === id)
   const priority = priorities[index]
   const level = priorities.length < 2 || index < 0 ? 3 : Math.round(3 - (2 * index) / (priorities.length - 1))
+  const Icon = ICONS[priority?.icon ?? ''] ?? ICONS.flag
   return (
-    <svg className="priority-icon" style={{ color: priority?.color }} width="14" height="14" viewBox="0 0 14 14" aria-label={`${priority?.name ?? 'Unknown'} priority`} role="img">
-      {/* Both looks are drawn; the "Priority icons" preference shows one of them via CSS. */}
-      <g className="pi-bars">
+    <span className="priority-icon" style={{ color: priority?.color }} role="img" aria-label={`${priority?.name ?? 'Unknown'} priority`}>
+      <svg className="pi-bars" width="14" height="14" viewBox="0 0 14 14">
         {[0, 1, 2].map((i) => (
           <rect key={i} x={2 + i * 4} y={9 - i * 3} width="2.5" height={3 + i * 3} rx="0.8" fill="currentColor" opacity={i < level ? 1 : 0.25} />
         ))}
-      </g>
-      <circle className="pi-dot" cx="7" cy="7" r="4.5" fill="currentColor" />
-    </svg>
+      </svg>
+      <svg className="pi-dot" width="14" height="14" viewBox="0 0 14 14">
+        <circle cx="7" cy="7" r="4.5" fill="currentColor" />
+      </svg>
+      <Icon className="pi-icon" size={14} strokeWidth={2.25} />
+    </span>
   )
 }
 

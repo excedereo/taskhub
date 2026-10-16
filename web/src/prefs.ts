@@ -5,11 +5,12 @@ export type Prefs = {
   theme: ThemeChoice
   density: 'comfortable' | 'compact'
   motion: 'full' | 'reduced'
-  priority: 'bars' | 'dots'
+  priority: 'bars' | 'dots' | 'icons'
+  status: 'rings' | 'dots' | 'icons'
 }
 
 const KEY = 'taskhub.prefs'
-export const DEFAULT_PREFS: Prefs = { theme: 'system', density: 'comfortable', motion: 'full', priority: 'bars' }
+export const DEFAULT_PREFS: Prefs = { theme: 'system', density: 'comfortable', motion: 'full', priority: 'bars', status: 'rings' }
 
 const systemDark = () => window.matchMedia('(prefers-color-scheme: dark)').matches
 
@@ -20,7 +21,8 @@ export function readPrefs(): Prefs {
       theme: (['system', 'light', 'dark', 'pink'] as const).includes(raw.theme as ThemeChoice) ? (raw.theme as ThemeChoice) : DEFAULT_PREFS.theme,
       density: raw.density === 'compact' ? 'compact' : 'comfortable',
       motion: raw.motion === 'reduced' ? 'reduced' : 'full',
-      priority: raw.priority === 'dots' ? 'dots' : 'bars',
+      priority: raw.priority === 'dots' || raw.priority === 'icons' ? raw.priority : 'bars',
+      status: raw.status === 'dots' || raw.status === 'icons' ? raw.status : 'rings',
     }
   } catch {
     return DEFAULT_PREFS
@@ -33,6 +35,7 @@ export function applyPrefs(prefs: Prefs) {
   root.dataset.density = prefs.density
   root.dataset.motion = prefs.motion
   root.dataset.priority = prefs.priority
+  root.dataset.status = prefs.status
 }
 
 export function savePrefs(prefs: Prefs) {

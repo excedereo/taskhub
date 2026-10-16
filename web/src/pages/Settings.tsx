@@ -9,6 +9,7 @@ import type { Label } from '../types.ts'
 import { Select } from '../components/Select.tsx'
 import { useToast } from '../components/Toast.tsx'
 import { ColorPicker } from '../components/ColorPicker.tsx'
+import { PrioritiesEditor, StatusesEditor } from '../components/WorkflowEditors.tsx'
 import { roleOptions } from '../components/ui.tsx'
 
 /** Workspace-wide settings. Each section shows up for the permission that controls it. */
@@ -24,6 +25,8 @@ export function SettingsPage() {
         <>
           <LogoField />
           <WorkspaceForm />
+          <StatusesEditor />
+          <PrioritiesEditor />
         </>
       )}
       {canLabels && <LabelsManager />}

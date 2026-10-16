@@ -32,8 +32,8 @@ const serializeCategory = (c: CategoryRow) => ({
 
 const CATEGORY_SELECT = `
   SELECT c.*,
-    (SELECT COUNT(*) FROM tasks t WHERE t.category_id = c.id AND t.status != 'done' AND t.archived_at IS NULL) AS open_count,
-    (SELECT COUNT(*) FROM tasks t WHERE t.category_id = c.id AND t.status = 'done' AND t.archived_at IS NULL AND t.parent_id IS NULL) AS done_top_count,
+    (SELECT COUNT(*) FROM tasks t JOIN statuses s ON s.id = t.status_id WHERE t.category_id = c.id AND s.type != 'done' AND t.archived_at IS NULL) AS open_count,
+    (SELECT COUNT(*) FROM tasks t JOIN statuses s ON s.id = t.status_id WHERE t.category_id = c.id AND s.type = 'done' AND t.archived_at IS NULL AND t.parent_id IS NULL) AS done_top_count,
     (SELECT COUNT(*) FROM tasks t WHERE t.category_id = c.id) AS total_count
   FROM categories c`
 
@@ -197,7 +197,7 @@ categoriesRouter.post('/categories/:id/archive-done', (req, res) => {
 
   const archived = transaction(() => {
     const now = Date.now()
-    const ids = (db.prepare(`SELECT id FROM tasks WHERE category_id = ? AND status = 'done' AND archived_at IS NULL AND parent_id IS NULL`).all(category.id) as { id: number }[]).map((r) => r.id)
+    const ids = (db.prepare(`SELECT t.id FROM tasks t JOIN statuses s ON s.id = t.status_id WHERE t.category_id = ? AND s.type = 'done' AND t.archived_at IS NULL AND t.parent_id IS NULL`).all(category.id) as { id: number }[]).map((r) => r.id)
     for (const id of ids) db.prepare('UPDATE tasks SET archived_at = ? WHERE id = ? OR (parent_id = ? AND archived_at IS NULL)').run(now, id, id)
     if (ids.length) audit(actor.id, 'category', category.id, 'category.archived_done', { name: category.name, count: ids.length })
     return ids.length

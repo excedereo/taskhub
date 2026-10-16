@@ -11,7 +11,7 @@ import { useToast } from '../components/Toast.tsx'
 export function ProfilePage() {
   const me = useMe()
   const { meta, signOut } = useSession()
-  const { roleById, categoryById } = useData()
+  const { roleById, categoryById, statuses, isDone } = useData()
   const toast = useToast()
   const navigate = useNavigate()
   const [tasks, setTasks] = useState<Task[]>([])
@@ -20,13 +20,8 @@ export function ProfilePage() {
     api.get<Task[]>('/tasks?assignee=me').then(setTasks).catch(toast.error)
   }, [toast])
 
-  const active = tasks.filter((t) => t.status !== 'done')
-  const stats = [
-    { label: 'In progress', value: tasks.filter((t) => t.status === 'in_progress').length },
-    { label: 'In review', value: tasks.filter((t) => t.status === 'review').length },
-    { label: 'Open', value: tasks.filter((t) => t.status === 'open').length },
-    { label: 'Done', value: tasks.filter((t) => t.status === 'done').length },
-  ]
+  const active = tasks.filter((t) => !isDone(t))
+  const stats = statuses.map((s) => ({ label: s.name, value: tasks.filter((t) => t.statusId === s.id).length }))
   const isAdmin = me.permissions.includes('admin')
   // Administrator already means "everything", listing the rest would just repeat it.
   const perms = meta?.permissions.filter((p) => (isAdmin ? p.key === 'admin' : me.permissions.includes(p.key))) ?? []
@@ -73,7 +68,7 @@ export function ProfilePage() {
                 <Link className="task-row" to={`/tasks?assignee=me&task=${t.id}`}>
                   <PriorityIcon id={t.priorityId} />
                   <span className="task-id">#{t.id}</span>
-                  <StatusIcon status={t.status} />
+                  <StatusIcon id={t.statusId} />
                   <span className="task-title truncate">{t.title}</span>
                   <span className="badge task-category">{categoryById.get(t.categoryId)?.name}</span>
                   <span className="task-time muted small">{timeAgo(t.updatedAt)}</span>

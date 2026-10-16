@@ -4,7 +4,7 @@ import { Archive, ArrowUpDown, Hash, Layers, Pencil, Plus, Search, Tag, Users } 
 import { Select } from '../components/Select.tsx'
 import { api } from '../api.ts'
 import { useData, useMe } from '../store.tsx'
-import { STATUSES, type Section, type Status, type Task } from '../types.ts'
+import type { Section, Status, StatusType, Task } from '../types.ts'
 import { cx, displayName } from '../util.ts'
 import { Avatar, Empty, PageHeader, StatusIcon } from '../components/ui.tsx'
 import { TaskPanel } from '../components/TaskPanel.tsx'
@@ -14,18 +14,12 @@ import { NewTaskModal } from '../components/NewTaskModal.tsx'
 import { CategoryModal } from '../components/CategoryModal.tsx'
 import { useToast } from '../components/Toast.tsx'
 
-type StatusFilter = 'active' | 'all' | Status
-
-const FILTERS: { key: StatusFilter; label: string }[] = [
-  { key: 'active', label: 'Active' },
-  ...STATUSES,
-  { key: 'all', label: 'All' },
-]
+/** "active" (everything not done), "all", or one status as "s<id>". */
+type StatusFilter = string
 
 function readFilter(key: string): StatusFilter | null {
   try {
-    const value = localStorage.getItem(key)
-    return FILTERS.some((f) => f.key === value) ? (value as StatusFilter) : null
+    return localStorage.getItem(key)
   } catch {
     return null
   }
@@ -39,14 +33,20 @@ function writeFilter(key: string, value: StatusFilter) {
   }
 }
 
-// Order of groups on screen: what is being worked on comes first.
-const GROUP_ORDER: Status[] = ['in_progress', 'review', 'open', 'done']
+// Order of groups on screen: what is being worked on comes first, then what is waiting, then what is done.
+const TYPE_ORDER: Record<StatusType, number> = { active: 0, todo: 1, done: 2 }
+const groupRank = (s: Status | undefined) => (s ? TYPE_ORDER[s.type] * 1000 + s.position : 9999)
 
 export function TasksPage() {
   const me = useMe()
   const { categoryId: categoryParam } = useParams()
   const [params, setParams] = useSearchParams()
-  const { categories, categoryById, users, labels, can, canCreateIn, reloadCategories } = useData()
+  const { categories, categoryById, users, labels, statuses, statusById, isDone, can, canCreateIn, reloadCategories } = useData()
+  const filters: { key: StatusFilter; label: string }[] = [
+    { key: 'active', label: 'Active' },
+    ...statuses.map((s) => ({ key: `s${s.id}`, label: s.name })),
+    { key: 'all', label: 'All' },
+  ]
   const toast = useToast()
 
   const categoryId = categoryParam ? Number(categoryParam) : null
@@ -59,7 +59,9 @@ export function TasksPage() {
   const filterKey = `taskhub.status.${me.id}.${categoryId ? `c${categoryId}` : assignee === 'me' ? 'my' : 'all'}`
   const [filterVersion, setFilterVersion] = useState(0)
   const savedFilter = useMemo(() => readFilter(filterKey), [filterKey, filterVersion])
-  const statusFilter = (params.get('status') ?? savedFilter ?? defaultFilter) as StatusFilter
+  // A remembered filter can point at a status that was deleted since; fall back to the default then.
+  const known = (f: string | null) => (f && (f === 'active' || f === 'all' || statuses.some((s) => `s${s.id}` === f)) ? f : null)
+  const statusFilter: StatusFilter = known(params.get('status')) ?? known(savedFilter) ?? defaultFilter
   const openTaskId = params.get('task') ? Number(params.get('task')) : null
 
   const [tasks, setTasks] = useState<Task[] | null>(null)
@@ -109,12 +111,15 @@ export function TasksPage() {
   }, [categoryId, toast])
 
   const matches = useCallback(
-    (t: Task) => (statusFilter === 'all' ? true : statusFilter === 'active' ? t.status !== 'done' : t.status === statusFilter),
-    [statusFilter],
+    (t: Task) => (statusFilter === 'all' ? true : statusFilter === 'active' ? !isDone(t) : `s${t.statusId}` === statusFilter),
+    [statusFilter, isDone],
   )
 
   const visible = useMemo(() => (tasks ?? []).filter(matches), [tasks, matches])
-  const groups = GROUP_ORDER.map((status) => ({ status, items: visible.filter((t) => t.status === status) })).filter((g) => g.items.length)
+  const groups = [...statuses]
+    .sort((a, b) => groupRank(a) - groupRank(b))
+    .map((status) => ({ status, items: visible.filter((t) => t.statusId === status.id) }))
+    .filter((g) => g.items.length)
   const taskById = useMemo(() => new Map((tasks ?? []).map((t) => [t.id, t])), [tasks])
 
   const upsert = useCallback(
@@ -123,9 +128,9 @@ export function TasksPage() {
         if (!list) return list
         const fits = !task.archivedAt && (!categoryId || task.categoryId === categoryId) && (assignee !== 'me' || task.assigneeId === me.id)
         const without = list.filter((t) => t.id !== task.id)
-        return fits ? [task, ...without].sort((a, b) => GROUP_ORDER.indexOf(a.status) - GROUP_ORDER.indexOf(b.status) || b.updatedAt - a.updatedAt) : without
+        return fits ? [task, ...without].sort((a, b) => groupRank(statusById.get(a.statusId)) - groupRank(statusById.get(b.statusId)) || b.updatedAt - a.updatedAt) : without
       }),
-    [categoryId, assignee, me.id],
+    [categoryId, assignee, me.id, statusById],
   )
 
   const take = async (task: Task) => {
@@ -210,7 +215,7 @@ export function TasksPage() {
         <>
           <div className="toolbar">
             <div className="segmented" role="tablist" aria-label="Status filter">
-              {FILTERS.map((f) => (
+              {filters.map((f) => (
                 <button key={f.key} role="tab" aria-selected={statusFilter === f.key} className={cx(statusFilter === f.key && 'active')} onClick={() => {
                     writeFilter(filterKey, f.key)
                     setFilterVersion((v) => v + 1)
@@ -286,10 +291,10 @@ export function TasksPage() {
           ) : (
             <div className="task-groups">
               {groups.map((g) => (
-                <section key={g.status} className="task-group">
+                <section key={g.status.id} className="task-group">
                   <h2 className="group-head">
-                    <StatusIcon status={g.status} />
-                    {STATUSES.find((s) => s.key === g.status)?.label}
+                    <StatusIcon id={g.status.id} />
+                    {g.status.name}
                     <span className="muted">{g.items.length}</span>
                   </h2>
                   <ul className="task-list">

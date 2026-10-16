@@ -104,7 +104,7 @@ export function ArchivedPage() {
               <li key={t.id}>
                 <div role="button" tabIndex={0} className="task-row" onClick={() => setParam('task', String(t.id))} onKeyDown={(e) => e.key === 'Enter' && setParam('task', String(t.id))}>
                   <span className="task-id">#{t.id}</span>
-                  <StatusIcon status={t.status} />
+                  <StatusIcon id={t.statusId} />
                   <span className="task-title truncate">{t.title}</span>
                   {kids.length > 0 && <span className="task-chip">+{kids.length} subtask(s)</span>}
                   <span className="badge task-category">{categoryById.get(t.categoryId)?.name}</span>

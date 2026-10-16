@@ -7,10 +7,10 @@ import { listAttachments, removeFiles } from './attachments.ts'
 import { canCreateIn } from '../permissions.ts'
 import { parseLabelIds } from './labels.ts'
 import { parsePriorityId } from './priorities.ts'
+import { firstOfType, parseStatusId, statusTypeOf, type StatusType } from './statuses.ts'
 
 export const tasksRouter = Router()
 
-export const STATUSES = ['open', 'in_progress', 'review', 'done'] as const
 
 export type TaskRow = {
   id: number
@@ -19,7 +19,8 @@ export type TaskRow = {
   position: number
   title: string
   description: string
-  status: (typeof STATUSES)[number]
+  status_id: number
+  status_type: StatusType
   priority_id: number
   creator_id: number | null
   assignee_id: number | null
@@ -39,7 +40,8 @@ const TASK_SELECT = `
   SELECT tasks.*,
     (SELECT COUNT(*) FROM attachments a WHERE a.task_id = tasks.id) AS attachment_count,
     (SELECT COUNT(*) FROM tasks c WHERE c.parent_id = tasks.id AND c.archived_at IS NULL) AS subtask_count,
-    (SELECT COUNT(*) FROM tasks c WHERE c.parent_id = tasks.id AND c.archived_at IS NULL AND c.status = 'done') AS subtask_done,
+    (SELECT COUNT(*) FROM tasks c JOIN statuses cs ON cs.id = c.status_id WHERE c.parent_id = tasks.id AND c.archived_at IS NULL AND cs.type = 'done') AS subtask_done,
+    (SELECT s.type FROM statuses s WHERE s.id = tasks.status_id) AS status_type,
     (SELECT group_concat(tl.label_id) FROM task_labels tl WHERE tl.task_id = tasks.id) AS label_ids
   FROM tasks`
 
@@ -50,7 +52,7 @@ export const serializeTask = (t: TaskRow) => ({
   position: t.position,
   title: t.title,
   description: t.description,
-  status: t.status,
+  statusId: t.status_id,
   priorityId: t.priority_id,
   creatorId: t.creator_id,
   assigneeId: t.assignee_id,
@@ -102,7 +104,7 @@ export const canEdit = (req: Request, task: TaskRow) => can(req, 'edit_tasks') |
 /** People working on a task: they may move it and attach files. */
 export const canWork = (req: Request, task: TaskRow) => canEdit(req, task) || task.assignee_id === me(req).id
 
-type Editable = Partial<Pick<TaskRow, 'category_id' | 'title' | 'description' | 'status' | 'priority_id' | 'assignee_id' | 'due_date'>>
+type Editable = Partial<Pick<TaskRow, 'category_id' | 'title' | 'description' | 'status_id' | 'priority_id' | 'assignee_id' | 'due_date'>>
 
 /** null, or a real calendar day written as YYYY-MM-DD. */
 function parseDueDate(value: unknown): string | null {
@@ -125,13 +127,17 @@ function applyChanges(actorId: number, task: TaskRow, next: Editable, action = '
 
   const merged = { ...task, ...next }
   const now = Date.now()
-  if (changes.status) merged.closed_at = merged.status === 'done' ? now : null
+  // Done is a type, so moving between two "done" statuses keeps the original closing time.
+  if (changes.status_id) {
+    const isDone = statusTypeOf(merged.status_id) === 'done'
+    merged.closed_at = isDone ? (task.status_type === 'done' ? task.closed_at : now) : null
+  }
 
   transaction(() => {
     db.prepare(`
-      UPDATE tasks SET category_id = ?, title = ?, description = ?, status = ?, priority_id = ?, assignee_id = ?, due_date = ?, updated_at = ?, closed_at = ?
+      UPDATE tasks SET category_id = ?, title = ?, description = ?, status_id = ?, priority_id = ?, assignee_id = ?, due_date = ?, updated_at = ?, closed_at = ?
       WHERE id = ?
-    `).run(merged.category_id, merged.title, merged.description, merged.status, merged.priority_id, merged.assignee_id, merged.due_date, now, merged.closed_at, task.id)
+    `).run(merged.category_id, merged.title, merged.description, merged.status_id, merged.priority_id, merged.assignee_id, merged.due_date, now, merged.closed_at, task.id)
     if (changes.labels) {
       db.prepare('DELETE FROM task_labels WHERE task_id = ?').run(task.id)
       for (const id of labels!) db.prepare('INSERT INTO task_labels (task_id, label_id) VALUES (?, ?)').run(task.id, id)
@@ -149,7 +155,7 @@ function applyChanges(actorId: number, task: TaskRow, next: Editable, action = '
 tasksRouter.get('/tasks', (req, res) => {
   const where: string[] = []
   const params: SQLInputValue[] = []
-  const { categoryId, assignee, status, q, archived, label } = req.query
+  const { categoryId, assignee, statusId, q, archived, label } = req.query
   const showArchived = archived === '1'
   where.push(showArchived ? 'tasks.archived_at IS NOT NULL' : 'tasks.archived_at IS NULL')
   const visible = visibilityFilter(req, 'tasks.category_id')
@@ -175,9 +181,9 @@ tasksRouter.get('/tasks', (req, res) => {
     where.push('tasks.id IN (SELECT task_id FROM task_labels WHERE label_id = ?)')
     params.push(Number(label))
   }
-  if (typeof status === 'string' && (STATUSES as readonly string[]).includes(status)) {
-    where.push('tasks.status = ?')
-    params.push(status)
+  if (typeof statusId === 'string' && /^\d+$/.test(statusId)) {
+    where.push('tasks.status_id = ?')
+    params.push(Number(statusId))
   }
   if (typeof q === 'string' && q.trim()) {
     const term = q.trim()
@@ -195,7 +201,8 @@ tasksRouter.get('/tasks', (req, res) => {
     ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
     ORDER BY
       ${showArchived ? 'tasks.archived_at DESC,' : ''}
-      CASE tasks.status WHEN 'in_progress' THEN 0 WHEN 'review' THEN 1 WHEN 'open' THEN 2 ELSE 3 END,
+      CASE (SELECT s.type FROM statuses s WHERE s.id = tasks.status_id) WHEN 'active' THEN 0 WHEN 'todo' THEN 1 ELSE 2 END,
+      (SELECT s.position FROM statuses s WHERE s.id = tasks.status_id),
       (SELECT p.position FROM priorities p WHERE p.id = tasks.priority_id),
       tasks.updated_at DESC
     LIMIT 2000
@@ -251,9 +258,9 @@ tasksRouter.post('/tasks', requirePermission('create_tasks'), (req, res) => {
   const id = transaction(() => {
     const now = Date.now()
     const { lastInsertRowid } = db.prepare(`
-      INSERT INTO tasks (category_id, parent_id, position, title, description, priority_id, creator_id, assignee_id, due_date, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(categoryId, parentId, nextPosition(categoryId, parentId), title, description, priorityId, actor.id, assigneeId, dueDate, now, now)
+      INSERT INTO tasks (category_id, parent_id, position, title, description, priority_id, status_id, creator_id, assignee_id, due_date, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(categoryId, parentId, nextPosition(categoryId, parentId), title, description, priorityId, firstOfType('todo'), actor.id, assigneeId, dueDate, now, now)
     const id = Number(lastInsertRowid)
     for (const labelId of labelIds) db.prepare('INSERT INTO task_labels (task_id, label_id) VALUES (?, ?)').run(id, labelId)
     audit(actor.id, 'task', id, 'task.created', { title, categoryId, priorityId, assigneeId, parentId })
@@ -274,12 +281,12 @@ tasksRouter.patch('/tasks/:id', (req, res) => {
 
   const editsContent = ['title', 'description', 'priorityId', 'categoryId', 'dueDate', 'labelIds'].some((k) => body[k] !== undefined)
   if (editsContent && !canEdit(req, task)) throw forbidden('Only the author or someone with "Edit any task" can edit this task')
-  if (body.status !== undefined && !canWork(req, task)) throw forbidden('Only the assignee, the author or an editor can change the status')
+  if (body.statusId !== undefined && !canWork(req, task)) throw forbidden('Only the assignee, the author or an editor can change the status')
 
   if (body.title !== undefined) next.title = text(body.title, 'Title', { min: 1, max: 200 })
   if (body.description !== undefined) next.description = text(body.description, 'Description', { max: 20000 })
   if (body.priorityId !== undefined) next.priority_id = parsePriorityId(body.priorityId)
-  if (body.status !== undefined) next.status = oneOf(body.status, 'Status', STATUSES)
+  if (body.statusId !== undefined) next.status_id = parseStatusId(body.statusId)
   if (body.dueDate !== undefined) next.due_date = parseDueDate(body.dueDate)
   const labels = body.labelIds === undefined ? undefined : parseLabelIds(body.labelIds)
   if (body.categoryId !== undefined) {
@@ -306,10 +313,10 @@ tasksRouter.post('/tasks/:id/take', (req, res) => {
   if (!can(req, 'take_tasks') && !can(req, 'assign_tasks')) throw forbidden('You cannot take tasks')
   if (task.assignee_id === actor.id) return res.json(serializeTask(task))
   if (task.assignee_id !== null && !can(req, 'assign_tasks')) throw badRequest('Someone is already working on this task')
-  if (task.status === 'done') throw badRequest('This task is already done')
+  if (task.status_type === 'done') throw badRequest('This task is already done')
 
   const next: Editable = { assignee_id: actor.id }
-  if (task.status === 'open') next.status = 'in_progress'
+  if (task.status_type === 'todo') next.status_id = firstOfType('active')
   res.json(serializeTask(applyChanges(actor.id, task, next, 'task.taken')))
 })
 
@@ -324,7 +331,7 @@ tasksRouter.post('/tasks/:id/assign', (req, res) => {
   if (userId !== null) assertAssignable(userId)
 
   const next: Editable = { assignee_id: userId }
-  if (userId === null && task.status === 'in_progress') next.status = 'open'
+  if (userId === null && task.status_type === 'active') next.status_id = firstOfType('todo')
   res.json(serializeTask(applyChanges(actor.id, task, next, userId === null ? 'task.unassigned' : 'task.assigned')))
 })
 

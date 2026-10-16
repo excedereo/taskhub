@@ -177,6 +177,27 @@ const migrations: string[] = [
   UPDATE tasks SET priority_id = CASE priority WHEN 'high' THEN 1 WHEN 'low' THEN 3 ELSE 2 END;
   CREATE INDEX tasks_priority ON tasks(priority_id);
   `,
+  `
+  -- Statuses become editable. Like priorities, the old text column stays but is no longer read.
+  CREATE TABLE statuses (
+    id         INTEGER PRIMARY KEY,
+    name       TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    color      TEXT NOT NULL,
+    icon       TEXT,
+    type       TEXT NOT NULL CHECK (type IN ('todo', 'active', 'done')),
+    position   REAL NOT NULL,
+    created_at INTEGER NOT NULL
+  );
+  INSERT INTO statuses (id, name, color, icon, type, position, created_at) VALUES
+    (1, 'Open', '#a1a1aa', 'circle-dashed', 'todo', 1, unixepoch() * 1000),
+    (2, 'In progress', '#d97706', 'loader', 'active', 2, unixepoch() * 1000),
+    (3, 'In review', '#7c3aed', 'eye', 'active', 3, unixepoch() * 1000),
+    (4, 'Done', '#16a34a', 'circle-check', 'done', 4, unixepoch() * 1000);
+  ALTER TABLE tasks ADD COLUMN status_id INTEGER REFERENCES statuses(id);
+  UPDATE tasks SET status_id = CASE status WHEN 'open' THEN 1 WHEN 'in_progress' THEN 2 WHEN 'review' THEN 3 ELSE 4 END;
+  CREATE INDEX tasks_status ON tasks(status_id);
+  ALTER TABLE priorities ADD COLUMN icon TEXT;
+  `,
 ]
 
 const current = (db.prepare('PRAGMA user_version').get() as { user_version: number }).user_version

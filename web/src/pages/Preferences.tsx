@@ -1,9 +1,8 @@
 import { useState } from 'react'
-import { Check, Settings2 } from 'lucide-react'
+import { Check } from 'lucide-react'
 import { useData } from '../store.tsx'
-import { PrioritiesModal } from '../components/PrioritiesModal.tsx'
 import type { ReactNode } from 'react'
-import { PageHeader, PriorityIcon } from '../components/ui.tsx'
+import { PageHeader, PriorityIcon, StatusIcon } from '../components/ui.tsx'
 import { readPrefs, savePrefs, type Prefs, type ThemeChoice } from '../prefs.ts'
 import { cx } from '../util.ts'
 
@@ -16,9 +15,10 @@ const THEMES: { key: ThemeChoice; label: string; hint: string; swatch: string[] 
 
 export function PreferencesPage() {
   const [prefs, setPrefs] = useState<Prefs>(readPrefs)
-  const [editingPriorities, setEditingPriorities] = useState(false)
-  const { priorities, can } = useData()
+  const { priorities, statuses } = useData()
   const top = priorities[0]
+  // Preview with an "in progress" status, where rings, dots and icons differ the most.
+  const firstStatus = statuses.find((s) => s.type === 'active') ?? statuses[0]
   const update = (patch: Partial<Prefs>) => {
     // Start from what is stored, so quick successive changes never overwrite each other.
     const next = { ...readPrefs(), ...patch }
@@ -60,24 +60,28 @@ export function PreferencesPage() {
         <PrefRow label="Density" hint="Compact fits more tasks on the screen" value={prefs.density} onChange={(density) => update({ density })} options={[['comfortable', 'Comfortable'], ['compact', 'Compact']]} />
         <PrefRow label="Animations" hint="Sliding panels, fades and glows" value={prefs.motion} onChange={(motion) => update({ motion })} options={[['full', 'On'], ['reduced', 'Reduced']]} />
         <PrefRow
+          label="Status icons"
+          hint="How statuses are drawn next to tasks"
+          value={prefs.status}
+          onChange={(status) => update({ status })}
+          options={[
+            ['rings', <span key="r" className="pref-icons" data-style="rings">{firstStatus && <StatusIcon id={firstStatus.id} />} Rings</span>],
+            ['dots', <span key="d" className="pref-icons" data-style="sdots">{firstStatus && <StatusIcon id={firstStatus.id} />} Dots</span>],
+            ['icons', <span key="i" className="pref-icons" data-style="sicons">{firstStatus && <StatusIcon id={firstStatus.id} />} Icons</span>],
+          ]}
+        />
+        <PrefRow
           label="Priority icons"
           hint="How priorities are drawn next to tasks"
           value={prefs.priority}
           onChange={(priority) => update({ priority })}
-          action={
-            can('manage_settings') && (
-              <button type="button" className="icon-btn icon-btn-sm" onClick={() => setEditingPriorities(true)} aria-label="Edit priorities" title="Edit priorities">
-                <Settings2 size={14} />
-              </button>
-            )
-          }
           options={[
             ['bars', <span key="b" className="pref-icons" data-style="bars">{top && <PriorityIcon id={top.id} />} Bars</span>],
             ['dots', <span key="d" className="pref-icons" data-style="dots">{top && <PriorityIcon id={top.id} />} Dots</span>],
+            ['icons', <span key="i" className="pref-icons" data-style="icons">{top && <PriorityIcon id={top.id} />} Icons</span>],
           ]}
         />
       </section>
-      {editingPriorities && <PrioritiesModal onClose={() => setEditingPriorities(false)} />}
     </div>
   )
 }

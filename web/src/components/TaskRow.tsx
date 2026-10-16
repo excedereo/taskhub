@@ -17,7 +17,8 @@ type Props = {
 }
 
 export function TaskRow({ task: t, parent, showCategory, nested, selected, canTake, onOpen, onTake }: Props) {
-  const { userById, categoryById, labelById } = useData()
+  const { userById, categoryById, labelById, isDone } = useData()
+  const done = isDone(t)
   const labels = t.labelIds.map((id) => labelById.get(id)).filter((l) => l !== undefined)
   const assignee = t.assigneeId ? userById.get(t.assigneeId) : null
 
@@ -25,14 +26,14 @@ export function TaskRow({ task: t, parent, showCategory, nested, selected, canTa
     <div
       role="button"
       tabIndex={0}
-      className={cx('task-row', selected && 'selected', nested && 'task-row-nested', t.status === 'done' && 'task-row-done')}
+      className={cx('task-row', selected && 'selected', nested && 'task-row-nested', done && 'task-row-done')}
       onClick={() => onOpen(t)}
       onKeyDown={(e) => e.key === 'Enter' && onOpen(t)}
     >
       {nested && <CornerDownRight size={14} className="nest-mark" aria-hidden />}
       <PriorityIcon id={t.priorityId} />
       <span className="task-id">#{t.id}</span>
-      <StatusIcon status={t.status} />
+      <StatusIcon id={t.statusId} />
       <span className="task-title truncate">
         {t.title}
         {parent && <span className="task-parent"> · in #{parent.id} {parent.title}</span>}
@@ -55,7 +56,7 @@ export function TaskRow({ task: t, parent, showCategory, nested, selected, canTa
           {labels.length > 3 && <span className="muted small">+{labels.length - 3}</span>}
         </span>
       )}
-      <DueBadge due={t.dueDate} done={t.status === 'done'} />
+      <DueBadge due={t.dueDate} done={done} />
       {showCategory && <span className="badge task-category">{categoryById.get(t.categoryId)?.name}</span>}
       <span className="task-time muted small" title={formatDate(t.updatedAt)}>
         {timeAgo(t.updatedAt)}
@@ -63,7 +64,7 @@ export function TaskRow({ task: t, parent, showCategory, nested, selected, canTa
       <span className="task-assignee">
         {assignee ? (
           <Avatar user={assignee} size={22} />
-        ) : canTake && t.status !== 'done' ? (
+        ) : canTake && !done ? (
           <button className="btn btn-sm btn-ghost take-btn" onClick={(e) => (e.stopPropagation(), onTake(t))}>
             Take
           </button>

@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react'
 import type { AuditEvent, Category, PermissionInfo, Priority, Role, Status, User } from '../types.ts'
-import { statusLabel } from '../types.ts'
+
+// Entries written before statuses became editable store these keys.
+const LEGACY_STATUS: Record<string, string> = { open: 'Open', in_progress: 'In progress', review: 'In review', done: 'Done' }
 
 // Entries written before priorities became editable store these names.
 const LEGACY_PRIORITY: Record<string, string> = { high: 'High', medium: 'Medium', low: 'Low' }
@@ -11,6 +13,7 @@ export type EventContext = {
   roleById: Map<number, Role>
   categoryById: Map<number, Category>
   priorityById?: Map<number, Priority>
+  statusById?: Map<number, Status>
   permissions: PermissionInfo[]
 }
 
@@ -103,6 +106,14 @@ export function describeEvent(e: AuditEvent, ctx: EventContext, inTask = false):
       return <>deleted the priority {name}</>
     case 'priority.reordered':
       return 'reordered the priorities'
+    case 'status.created':
+      return <>added the status {name}</>
+    case 'status.updated':
+      return <>edited the status {name}</>
+    case 'status.deleted':
+      return <>deleted the status {name}</>
+    case 'status.reordered':
+      return 'reordered the statuses'
     case 'category.reordered':
       return 'reordered the categories'
     case 'category.created':
@@ -153,7 +164,9 @@ export function describeEvent(e: AuditEvent, ctx: EventContext, inTask = false):
       return <>removed the image {name}{task && <> from{task}</>}</>
     case 'task.updated': {
       const parts: ReactNode[] = []
-      if (changes.status) parts.push(<>moved{task} from <B>{statusLabel(changes.status[0] as Status)}</B> to <B>{statusLabel(changes.status[1] as Status)}</B></>)
+      const statusName = (v: unknown) => (typeof v === 'number' ? ctx.statusById?.get(v)?.name ?? 'a deleted status' : LEGACY_STATUS[String(v)] ?? String(v))
+      if (changes.status) parts.push(<>moved{task} from <B>{statusName(changes.status[0])}</B> to <B>{statusName(changes.status[1])}</B></>)
+      if (changes.status_id) parts.push(<>moved{task} from <B>{statusName(changes.status_id[0])}</B> to <B>{statusName(changes.status_id[1])}</B></>)
       if (changes.priority) parts.push(<>set priority{inTask ? '' : <> of{task}</>} to <B>{LEGACY_PRIORITY[String(changes.priority[1])] ?? String(changes.priority[1])}</B></>)
       if (changes.priority_id) parts.push(<>set priority{inTask ? '' : <> of{task}</>} to <B>{ctx.priorityById?.get(changes.priority_id[1] as number)?.name ?? 'a deleted priority'}</B></>)
       if (changes.title) parts.push(<>renamed{inTask ? ' the task' : <> <B>#{e.entityId} {String(changes.title[0])}</B></>} to <B>{String(changes.title[1])}</B></>)

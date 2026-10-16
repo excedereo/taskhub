@@ -2,34 +2,37 @@ import { useEffect, useState, type MouseEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api.ts'
 import { useData } from '../store.tsx'
-import { STATUSES, type Status } from '../types.ts'
+import type { Status } from '../types.ts'
 import { cx, displayName } from '../util.ts'
 import { Avatar, PageHeader, StatusIcon } from '../components/ui.tsx'
 import { useToast } from '../components/Toast.tsx'
+
+/** Counts per status id, as the server sends them. */
+type Counts = Record<number, number>
 
 type CategoryStats = {
   id: number
   name: string
   total: number
   done: number
-  inProgress: number
-  review: number
-  open: number
+  byStatus: Counts
   sections: { id: number | null; title: string | null; total: number; done: number }[]
-  unfinished: { open: number; inProgress: number; review: number }
+  unfinished: Counts
 }
 
 type Analytics = {
   days: number
-  overview: { open: number; inProgress: number; review: number; closed: number; closedPrev: number }
+  staleDays: number
+  overview: { byStatus: Counts; closed: number; closedPrev: number }
   categories: CategoryStats[]
-  stale: { id: number; title: string; status: Status; assigneeId: number | null; categoryId: number; idleDays: number }[]
-  people?: { userId: number; inProgress: number; review: number; open: number; closed: number }[]
+  stale: { id: number; title: string; statusId: number; assigneeId: number | null; categoryId: number; idleDays: number }[]
+  people?: { userId: number; byStatus: Counts; load: number; active: number; closed: number }[]
 }
 
 const PERIODS = [7, 30, 90] as const
 const PERIOD_KEY = 'taskhub.analytics-period'
-const statusLabel = (s: Status) => STATUSES.find((x) => x.key === s)?.label ?? s
+const TYPE_RANK = { done: 0, active: 1, todo: 2 } as const
+const sum = (c: Counts) => Object.values(c).reduce((a, b) => a + b, 0)
 
 function readPeriod() {
   try {
@@ -42,6 +45,7 @@ function readPeriod() {
 
 export function AnalyticsPage() {
   const toast = useToast()
+  const { statuses } = useData()
   const [days, setDays] = useState(readPeriod)
   const [data, setData] = useState<Analytics | null>(null)
 
@@ -78,9 +82,11 @@ export function AnalyticsPage() {
       ) : (
         <>
           <section className="tiles">
-            <Tile label="Open" value={data.overview.open} />
-            <Tile label="In progress" value={data.overview.inProgress} />
-            <Tile label="In review" value={data.overview.review} />
+            {statuses
+              .filter((s) => s.type !== 'done')
+              .map((s) => (
+                <Tile key={s.id} label={s.name} value={data.overview.byStatus[s.id] ?? 0} />
+              ))}
             <Tile label={`Finished · ${days} days`} value={data.overview.closed} prev={data.overview.closedPrev} />
           </section>
 
@@ -107,7 +113,7 @@ export function AnalyticsPage() {
           {data.stale.length > 0 && (
             <section className="card dash-card">
               <h2 className="dash-title">
-                Stuck <span className="muted small">7+ days in progress · 3+ days in review</span>
+                Stuck <span className="muted small">in progress without changes for {data.staleDays}+ days</span>
               </h2>
               <StaleList stale={data.stale} />
             </section>
@@ -157,36 +163,28 @@ function arc(start: number, end: number): string {
   return `M${x1} ${y1} A${outer} ${outer} 0 ${large} 1 ${x2} ${y2} L${x3} ${y3} A${inner} ${inner} 0 ${large} 0 ${x4} ${y4} Z`
 }
 
-type Slice = { key: string; name: string; color: string; open: number; inProgress: number; review: number; total: number; href?: string }
+type Slice = { key: string; name: string; color: string; counts: Counts; total: number; href?: string }
 
 function CategoryDonut({ categories }: { categories: CategoryStats[] }) {
+  const { statuses } = useData()
   const [active, setActive] = useState<string | null>(null)
   const [tip, setTip] = useState<{ x: number; y: number } | null>(null)
 
-  // Colors are tied to the category (its order of creation), never to its size, so they stay put between periods.
+  // Colors are tied to the category (its place in the sidebar), never to its size, so they stay put between periods.
   const all: Slice[] = categories.map((c, i) => ({
     key: String(c.id),
     name: c.name,
     color: `var(--cat-${(i % MAX_SLICES) + 1})`,
-    ...c.unfinished,
-    total: c.unfinished.open + c.unfinished.inProgress + c.unfinished.review,
+    counts: c.unfinished,
+    total: sum(c.unfinished),
     href: `/tasks/c/${c.id}`,
   }))
   let slices = all
   if (all.length > MAX_SLICES) {
     const rest = all.slice(MAX_SLICES - 1)
-    slices = [
-      ...all.slice(0, MAX_SLICES - 1),
-      {
-        key: 'other',
-        name: `Other (${rest.length})`,
-        color: 'var(--cat-other)',
-        open: rest.reduce((a, s) => a + s.open, 0),
-        inProgress: rest.reduce((a, s) => a + s.inProgress, 0),
-        review: rest.reduce((a, s) => a + s.review, 0),
-        total: rest.reduce((a, s) => a + s.total, 0),
-      },
-    ]
+    const counts: Counts = {}
+    for (const s of rest) for (const [id, n] of Object.entries(s.counts)) counts[Number(id)] = (counts[Number(id)] ?? 0) + n
+    slices = [...all.slice(0, MAX_SLICES - 1), { key: 'other', name: `Other (${rest.length})`, color: 'var(--cat-other)', counts, total: sum(counts) }]
   }
   const visible = slices.filter((s) => s.total > 0)
   const total = visible.reduce((a, s) => a + s.total, 0)
@@ -211,13 +209,7 @@ function CategoryDonut({ categories }: { categories: CategoryStats[] }) {
       <div className="donut" onMouseMove={move} onMouseLeave={() => (setActive(null), setTip(null))}>
         <svg viewBox="0 0 200 200" role="img" aria-label="Unfinished tasks by category">
           {arcs.map((s) => (
-            <path
-              key={s.key}
-              d={s.d}
-              fill={s.color}
-              className={cx('donut-slice', active && active !== s.key && 'dim')}
-              onMouseEnter={() => setActive(s.key)}
-            />
+            <path key={s.key} d={s.d} fill={s.color} className={cx('donut-slice', active && active !== s.key && 'dim')} onMouseEnter={() => setActive(s.key)} />
           ))}
         </svg>
         <div className="donut-center" aria-hidden>
@@ -227,11 +219,13 @@ function CategoryDonut({ categories }: { categories: CategoryStats[] }) {
         {current && tip && (
           <div className="tooltip donut-tip" style={{ left: tip.x, top: tip.y }}>
             <strong>{current.name}</strong>
-            {(['open', 'in_progress', 'review'] as Status[]).map((s) => (
-              <span key={s}>
-                <StatusIcon status={s} size={12} /> {statusLabel(s)} <b>{s === 'open' ? current.open : s === 'in_progress' ? current.inProgress : current.review}</b>
-              </span>
-            ))}
+            {statuses
+              .filter((s) => s.type !== 'done')
+              .map((s) => (
+                <span key={s.id}>
+                  <StatusIcon id={s.id} size={12} /> {s.name} <b>{current.counts[s.id] ?? 0}</b>
+                </span>
+              ))}
           </div>
         )}
       </div>
@@ -255,15 +249,17 @@ function CategoryDonut({ categories }: { categories: CategoryStats[] }) {
   )
 }
 
-function StackBar({ parts, total, scale }: { parts: { status: Status; n: number }[]; total: number; scale?: number }) {
+/** Status segments in the workspace's own colours: done first, then work in progress, then what is waiting. */
+function StackBar({ counts, scale }: { counts: Counts; scale?: number }) {
+  const { statuses } = useData()
+  const ordered = [...statuses].sort((a: Status, b: Status) => TYPE_RANK[a.type] - TYPE_RANK[b.type] || a.position - b.position)
+  const parts = ordered.map((s) => ({ s, n: counts[s.id] ?? 0 })).filter((p) => p.n > 0)
   return (
     <div className="sbar" style={scale !== undefined ? { width: `${scale * 100}%` } : undefined}>
-      {total === 0 ? (
+      {parts.length === 0 ? (
         <span className="sbar-empty" />
       ) : (
-        parts
-          .filter((p) => p.n > 0)
-          .map((p) => <span key={p.status} className={`sbar-seg seg-${p.status}`} style={{ flexGrow: p.n }} title={`${statusLabel(p.status)}: ${p.n}`} />)
+        parts.map(({ s, n }) => <span key={s.id} className="sbar-seg" style={{ flexGrow: n, background: s.color }} title={`${s.name}: ${n}`} />)
       )}
     </div>
   )
@@ -280,15 +276,7 @@ function CategoryProgress({ c }: { c: CategoryStats }) {
           {c.done}/{c.total}
         </span>
       </div>
-      <StackBar
-        total={c.total}
-        parts={[
-          { status: 'done', n: c.done },
-          { status: 'review', n: c.review },
-          { status: 'in_progress', n: c.inProgress },
-          { status: 'open', n: c.open },
-        ]}
-      />
+      <StackBar counts={c.byStatus} />
       {c.sections.some((s) => s.id !== null) && (
         <ul className="section-progress">
           {c.sections.map((s) => (
@@ -316,7 +304,7 @@ function StaleList({ stale }: { stale: Analytics['stale'] }) {
         <li key={t.id}>
           <Link className="task-row" to={`/tasks?status=all&task=${t.id}`}>
             <span className="task-id">#{t.id}</span>
-            <StatusIcon status={t.status} />
+            <StatusIcon id={t.statusId} />
             <span className="task-title truncate">{t.title}</span>
             <span className="badge task-category">{categoryById.get(t.categoryId)?.name}</span>
             <span className="idle">{t.idleDays} d</span>
@@ -332,35 +320,24 @@ function StaleList({ stale }: { stale: Analytics['stale'] }) {
 
 function Workload({ people, days }: { people: NonNullable<Analytics['people']>; days: number }) {
   const { userById } = useData()
-  const maxLoad = Math.max(1, ...people.map((p) => p.inProgress + p.review + p.open))
+  const maxLoad = Math.max(1, ...people.map((p) => p.load))
   return (
     <ul className="workload">
-      {people.map((p) => {
-        const load = p.inProgress + p.review + p.open
-        return (
-          <li key={p.userId}>
-            <span className="user-chip">
-              <Avatar user={userById.get(p.userId)} size={24} />
-              <span className="truncate">{displayName(userById.get(p.userId))}</span>
-            </span>
-            <span className="workload-bar">
-              <StackBar
-                total={load}
-                scale={load / maxLoad}
-                parts={[
-                  { status: 'in_progress', n: p.inProgress },
-                  { status: 'review', n: p.review },
-                  { status: 'open', n: p.open },
-                ]}
-              />
-              <span className="small num">{load}</span>
-            </span>
-            <span className="muted small num workload-closed" title={`Finished in the last ${days} days`}>
-              ✓ {p.closed}
-            </span>
-          </li>
-        )
-      })}
+      {people.map((p) => (
+        <li key={p.userId}>
+          <span className="user-chip">
+            <Avatar user={userById.get(p.userId)} size={24} />
+            <span className="truncate">{displayName(userById.get(p.userId))}</span>
+          </span>
+          <span className="workload-bar">
+            <StackBar counts={p.byStatus} scale={p.load / maxLoad} />
+            <span className="small num">{p.load}</span>
+          </span>
+          <span className="muted small num workload-closed" title={`Finished in the last ${days} days`}>
+            ✓ {p.closed}
+          </span>
+        </li>
+      ))}
     </ul>
   )
 }

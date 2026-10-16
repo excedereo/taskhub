@@ -2,12 +2,13 @@ import { Router } from 'express'
 import { db, transaction } from '../db.ts'
 import { audit, diff } from '../audit.ts'
 import { badRequest, idParam, me, notFound, requirePermission, text } from '../http.ts'
+import { parseIcon } from './statuses.ts'
 
 export const prioritiesRouter = Router()
 
-type PriorityRow = { id: number; name: string; color: string; position: number; is_default: number; task_count: number }
+type PriorityRow = { id: number; name: string; color: string; icon: string | null; position: number; is_default: number; task_count: number }
 
-const serializePriority = (p: PriorityRow) => ({ id: p.id, name: p.name, color: p.color, position: p.position, isDefault: Boolean(p.is_default), taskCount: p.task_count })
+const serializePriority = (p: PriorityRow) => ({ id: p.id, name: p.name, color: p.color, icon: p.icon, position: p.position, isDefault: Boolean(p.is_default), taskCount: p.task_count })
 
 const SELECT = `SELECT p.*, (SELECT COUNT(*) FROM tasks t WHERE t.priority_id = p.id AND t.archived_at IS NULL) AS task_count FROM priorities p`
 const getPriority = (id: number) => db.prepare(`${SELECT} WHERE p.id = ?`).get(id) as PriorityRow | undefined
@@ -39,11 +40,12 @@ prioritiesRouter.post('/priorities', requirePermission('manage_settings'), (req,
   const actor = me(req)
   const name = text(req.body?.name, 'Name', { min: 1, max: 24 })
   const color = parseColor(req.body?.color ?? '#a1a1aa')
+  const icon = parseIcon(req.body?.icon ?? null)
   assertNameFree(name)
   transaction(() => {
     // New priorities go to the bottom: least important.
     const position = (db.prepare('SELECT COALESCE(MAX(position), 0) + 1 AS p FROM priorities').get() as { p: number }).p
-    const id = Number(db.prepare('INSERT INTO priorities (name, color, position, created_at) VALUES (?, ?, ?, ?)').run(name, color, position, Date.now()).lastInsertRowid)
+    const id = Number(db.prepare('INSERT INTO priorities (name, color, icon, position, created_at) VALUES (?, ?, ?, ?, ?)').run(name, color, icon, position, Date.now()).lastInsertRowid)
     audit(actor.id, 'priority', id, 'priority.created', { name })
   })
   res.status(201).json(list())
@@ -53,18 +55,19 @@ prioritiesRouter.patch('/priorities/:id', requirePermission('manage_settings'), 
   const actor = me(req)
   const priority = getPriority(idParam(req))
   if (!priority) throw notFound('Priority not found')
-  const next: { name?: string; color?: string } = {}
+  const next: { name?: string; color?: string; icon?: string | null } = {}
   if (req.body?.name !== undefined) {
     next.name = text(req.body.name, 'Name', { min: 1, max: 24 })
     assertNameFree(next.name, priority.id)
   }
   if (req.body?.color !== undefined) next.color = parseColor(req.body.color)
+  if (req.body?.icon !== undefined) next.icon = parseIcon(req.body.icon)
   const makeDefault = req.body?.isDefault === true && !priority.is_default
   const changes: Record<string, unknown> = diff(priority, next)
   if (makeDefault) changes.isDefault = [false, true]
   if (Object.keys(changes).length) {
     transaction(() => {
-      db.prepare('UPDATE priorities SET name = ?, color = ? WHERE id = ?').run(next.name ?? priority.name, next.color ?? priority.color, priority.id)
+      db.prepare('UPDATE priorities SET name = ?, color = ?, icon = ? WHERE id = ?').run(next.name ?? priority.name, next.color ?? priority.color, next.icon === undefined ? priority.icon : next.icon, priority.id)
       if (makeDefault) {
         db.prepare('UPDATE priorities SET is_default = 0').run()
         db.prepare('UPDATE priorities SET is_default = 1 WHERE id = ?').run(priority.id)

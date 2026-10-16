@@ -1,4 +1,15 @@
-export type Status = 'open' | 'in_progress' | 'review' | 'done'
+/** What a status means for the workflow; all logic looks at this, never at the name. */
+export type StatusType = 'todo' | 'active' | 'done'
+
+export type Status = {
+  id: number
+  name: string
+  color: string
+  icon: string | null
+  type: StatusType
+  position: number
+  taskCount: number
+}
 
 export type PermissionInfo = { key: string; label: string; description: string }
 
@@ -69,7 +80,7 @@ export type Task = {
   categoryId: number
   title: string
   description: string
-  status: Status
+  statusId: number
   priorityId: number
   creatorId: number | null
   assigneeId: number | null
@@ -92,6 +103,7 @@ export type Priority = {
   id: number
   name: string
   color: string
+  icon: string | null
   position: number
   isDefault: boolean
   taskCount: number
@@ -140,12 +152,3 @@ export type Settings = {
   defaultRoleId: number
 }
 
-export const STATUSES: { key: Status; label: string }[] = [
-  { key: 'open', label: 'Open' },
-  { key: 'in_progress', label: 'In progress' },
-  { key: 'review', label: 'In review' },
-  { key: 'done', label: 'Done' },
-]
-
-
-export const statusLabel = (s: Status) => STATUSES.find((x) => x.key === s)?.label ?? s
