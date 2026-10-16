@@ -42,6 +42,34 @@ export function rolePermissions(roleId: number): string[] | undefined {
 
 const userName = (u: UserRow) => u.display_name ?? u.username ?? u.discord_id
 
+type TourState = { seen: boolean; done: string[] }
+
+const readTour = (userId: number): TourState => {
+  const row = db.prepare('SELECT tour_state FROM users WHERE id = ?').get(userId) as { tour_state: string | null } | undefined
+  try {
+    const v = JSON.parse(row?.tour_state ?? 'null') as Partial<TourState> | null
+    return { seen: Boolean(v?.seen), done: Array.isArray(v?.done) ? v.done.filter((k) => typeof k === 'string').slice(0, 100) : [] }
+  } catch {
+    return { seen: false, done: [] }
+  }
+}
+
+usersRouter.get('/me/tour', (req, res) => {
+  res.json(readTour(me(req).id))
+})
+
+/** Merges progress: "seen" only ever turns on, finished guides are added to the list. */
+usersRouter.put('/me/tour', (req, res) => {
+  const user = me(req)
+  const current = readTour(user.id)
+  const body = req.body ?? {}
+  const done = Array.isArray(body.done) ? body.done.filter((k: unknown) => typeof k === 'string' && /^[a-z-]{1,40}$/.test(k)) : []
+  const next: TourState = { seen: current.seen || Boolean(body.seen), done: [...new Set([...current.done, ...done])].slice(0, 100) }
+  if (body.reset === true) next.done = []
+  db.prepare('UPDATE users SET tour_state = ? WHERE id = ?').run(JSON.stringify(next), user.id)
+  res.json(next)
+})
+
 // Everyone signed in can see the team: it is needed to pick assignees and show authors.
 usersRouter.get('/users', (_req, res) => {
   const rows = db.prepare('SELECT * FROM users ORDER BY status = \'disabled\', COALESCE(display_name, username, discord_id) COLLATE NOCASE').all() as UserRow[]

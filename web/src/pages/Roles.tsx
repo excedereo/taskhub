@@ -118,7 +118,7 @@ export function RolesPage() {
       />
 
       <div className="roles-layout">
-        <ul className="role-list">
+        <ul className="role-list" data-tour="role-list">
           {owner.map((r) => (
             <li key={r.id} className="role-li">
               {canManage && <span className="grip grip-placeholder" />}
@@ -146,7 +146,7 @@ export function RolesPage() {
         </ul>
 
         {(role || selected === NEW) && (
-          <div className="card role-editor">
+          <div className="card role-editor" data-tour="role-editor">
             {lock && <div className="notice">{lock}</div>}
 
             <div className="form-row">

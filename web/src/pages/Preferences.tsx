@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { PageHeader, PriorityIcon, StatusIcon } from '../components/ui.tsx'
 import { readPrefs, savePrefs, usePrefs, useLooks, type Look, type Prefs } from '../prefs.ts'
 import { ThemePicker } from '../components/ThemePicker.tsx'
+import { Guides } from '../tour/Guides.tsx'
 import { ColorPicker } from '../components/ColorPicker.tsx'
 import { IconPicker } from '../components/IconPicker.tsx'
 import { WORKFLOW_COLORS } from '../components/WorkflowEditors.tsx'
@@ -23,11 +24,11 @@ export function PreferencesPage() {
     <div className="page page-narrow">
       <PageHeader title="Settings" description="How Taskhub looks for you. Saved in this browser." />
 
-      <section className="card form">
+      <section className="card form" data-tour="theme">
         <ThemePicker />
       </section>
 
-      <section className="card pref-list">
+      <section className="card pref-list" data-tour="display">
         <PrefRow label="Density" hint="Compact fits more tasks on the screen" value={prefs.density} onChange={(density) => update({ density })} options={[['comfortable', 'Comfortable'], ['compact', 'Compact']]} />
         <PrefRow label="Animations" hint="Sliding panels, fades and glows" value={prefs.motion} onChange={(motion) => update({ motion })} options={[['full', 'On'], ['reduced', 'Reduced']]} />
         <PrefRow
@@ -55,6 +56,7 @@ export function PreferencesPage() {
       </section>
 
       <LooksCard />
+      <Guides />
     </div>
   )
 }
@@ -96,7 +98,7 @@ function LooksCard() {
   const anyChanged = Object.keys(prefs.statusLooks).length + Object.keys(prefs.priorityLooks).length > 0
 
   return (
-    <section className="card looks-card">
+    <section className="card looks-card" data-tour="looks">
       <div className="row gap-xs">
         <span className="stack min-w-0 grow">
           <span>Colors and icons</span>

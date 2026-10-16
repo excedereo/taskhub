@@ -279,7 +279,7 @@ export function TaskPanel({ taskId, onClose, onOpenTask, onChanged, onDeleted }:
             <h2 className="title-static">{task.title}</h2>
           )}
 
-          <dl className="props">
+          <dl className="props" data-tour="panel-props">
             <dt>Status</dt>
             <dd>
               <Select
@@ -305,7 +305,7 @@ export function TaskPanel({ taskId, onClose, onOpenTask, onChanged, onDeleted }:
             </dd>
 
             <dt>Assignee</dt>
-            <dd className="row gap-xs wrap">
+            <dd className="row gap-xs wrap" data-tour="panel-assignee">
               {canAssign ? (
                 <Select variant="ghost" aria-label="Assignee" value={task.assigneeId} onChange={assign} options={assigneeOptions} />
               ) : task.assigneeId ? (
@@ -378,7 +378,7 @@ export function TaskPanel({ taskId, onClose, onOpenTask, onChanged, onDeleted }:
             )}
           </dl>
 
-          <section className="panel-section">
+          <section className="panel-section" data-tour="panel-description">
             <h3>Description</h3>
             {canEdit ? (
               <AutoTextarea
@@ -397,7 +397,7 @@ export function TaskPanel({ taskId, onClose, onOpenTask, onChanged, onDeleted }:
           </section>
 
           {!task.parentId && (subtasks.length > 0 || canCreateIn(task.categoryId)) && (
-            <section className="panel-section">
+            <section className="panel-section" data-tour="panel-subtasks">
               <h3>
                 Subtasks{' '}
                 {subtasks.length > 0 && (
@@ -441,7 +441,7 @@ export function TaskPanel({ taskId, onClose, onOpenTask, onChanged, onDeleted }:
           )}
 
           {(gallery.length > 0 || canWork) && (
-            <section className="panel-section">
+            <section className="panel-section" data-tour="panel-images">
               <h3>
                 Images {gallery.length > 0 && <span className="muted">{gallery.length}</span>}
               </h3>
@@ -450,7 +450,7 @@ export function TaskPanel({ taskId, onClose, onOpenTask, onChanged, onDeleted }:
             </section>
           )}
 
-          <section className="panel-section">
+          <section className="panel-section" data-tour="panel-activity">
             <h3>Activity</h3>
             <ol className="timeline">
               {history.map((e) => (

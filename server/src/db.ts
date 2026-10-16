@@ -274,6 +274,11 @@ const migrations: string[] = [
   );
   CREATE INDEX api_tokens_user ON api_tokens(user_id);
   `,
+  `
+  -- Guided tour progress per person: {"seen": true, "done": ["navigation", ...]}. Kept on the server so
+  -- the welcome prompt does not come back on every new device.
+  ALTER TABLE users ADD COLUMN tour_state TEXT;
+  `,
 ]
 
 const current = (db.prepare('PRAGMA user_version').get() as { user_version: number }).user_version

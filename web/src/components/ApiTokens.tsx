@@ -88,7 +88,7 @@ export function ApiTokens() {
   }
 
   return (
-    <section className="section">
+    <section className="section" data-tour="api-tokens">
       <h2 className="section-title">API tokens and AI agents</h2>
       <div className="card form">
         <p className="muted small">

@@ -180,17 +180,17 @@ export function TasksPage() {
           !arranging && (
             <>
               {category && can('manage_categories') && (
-                <button className="btn btn-ghost" onClick={() => setEditingCategory(true)}>
+                <button className="btn btn-ghost" data-tour="edit-category" onClick={() => setEditingCategory(true)}>
                   <Pencil size={14} /> Edit
                 </button>
               )}
               {canArrange && (
-                <button className="btn btn-ghost" onClick={() => setArranging(true)}>
+                <button className="btn btn-ghost" data-tour="arrange" onClick={() => setArranging(true)}>
                   <ArrowUpDown size={14} /> Arrange
                 </button>
               )}
               {canCreate && (
-                <button className="btn btn-primary" onClick={() => setCreating(true)}>
+                <button className="btn btn-primary" data-tour="new-task" onClick={() => setCreating(true)}>
                   <Plus size={14} /> New task
                 </button>
               )}
@@ -214,7 +214,7 @@ export function TasksPage() {
       ) : (
         <>
           <div className="toolbar">
-            <div className="segmented" role="tablist" aria-label="Status filter">
+            <div className="segmented" role="tablist" aria-label="Status filter" data-tour="status-filter">
               {filters.map((f) => (
                 <button key={f.key} role="tab" aria-selected={statusFilter === f.key} className={cx(statusFilter === f.key && 'active')} onClick={() => {
                     writeFilter(filterKey, f.key)
@@ -225,7 +225,7 @@ export function TasksPage() {
                 </button>
               ))}
             </div>
-            <div className="toolbar-right">
+            <div className="toolbar-right" data-tour="task-filters">
               {labels.length > 0 && (
                 <Select
                   variant="sm"

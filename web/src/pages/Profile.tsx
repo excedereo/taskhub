@@ -80,7 +80,7 @@ export function ProfilePage() {
         )}
       </section>
 
-      <section className="section">
+      <section className="section" data-tour="my-permissions">
         <h2 className="section-title">What you can do</h2>
         <ul className="perm-summary">
           {perms.map((p) => (

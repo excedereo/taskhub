@@ -73,7 +73,7 @@ function WorkspaceForm() {
   }
 
   return (
-      <form className="card form" onSubmit={submit}>
+      <form className="card form" data-tour="workspace-form" onSubmit={submit}>
         <Field label="Instance name" hint="Shown in the sidebar, the sign-in page and the browser tab.">
           <input className="input" value={form.instanceName} maxLength={40} onChange={(e) => setForm({ ...form, instanceName: e.target.value })} />
         </Field>
@@ -201,7 +201,7 @@ function LabelsManager() {
   }
 
   return (
-    <section className="card form labels-card">
+    <section className="card form labels-card" data-tour="labels">
       <div className="stack">
         <span>Labels</span>
         <span className="muted small">Group tasks across categories, for example "UI", "Server" or "Balance".</span>

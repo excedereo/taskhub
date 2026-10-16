@@ -1349,3 +1349,31 @@ body.dragging * { cursor: grabbing !important; user-select: none; }
 .token-help summary { cursor: pointer; color: var(--text-muted); font-size: 13px; }
 .token-help summary:hover { color: var(--text); }
 .token-done { align-self: flex-start; }
+
+/* Guided tour */
+.tour { position: fixed; inset: 0; z-index: 1000; }
+.tour-shield { position: absolute; inset: 0; }
+.tour-dim { background: rgb(0 0 0 / 0.5); animation: fade 0.15s ease; }
+.tour-spot { position: absolute; border-radius: 10px; box-shadow: 0 0 0 9999px rgb(0 0 0 / 0.5), 0 0 0 2px var(--primary); pointer-events: none; transition: top 0.25s ease, left 0.25s ease, width 0.25s ease, height 0.25s ease; }
+.tour-card { position: absolute; display: flex; flex-direction: column; gap: 8px; padding: 14px 16px 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); box-shadow: var(--shadow-lg); color: var(--text); animation: pop 0.14s ease; transition: top 0.25s ease, left 0.25s ease; }
+.tour-card-wait { visibility: hidden; }
+.tour-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: -2px; }
+.tour-title { margin: 0; font-size: 15px; font-weight: 600; }
+.tour-body { font-size: 13px; line-height: 1.55; color: var(--text); }
+.tour-body p { margin: 0 0 6px; }
+.tour-body p:last-child { margin-bottom: 0; }
+.tour-list { margin: 0 0 6px; padding-left: 18px; }
+.tour-list li { margin: 2px 0; }
+.tour-foot { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+.tour-bar { flex: 1; height: 3px; border-radius: 3px; background: var(--active); overflow: hidden; }
+.tour-bar span { display: block; height: 100%; background: var(--primary); transition: width 0.25s ease; }
+.tour-prompt { position: fixed; right: 20px; bottom: 20px; z-index: 900; display: flex; flex-direction: column; gap: 8px; width: 320px; max-width: calc(100vw - 32px); padding: 14px 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); box-shadow: var(--shadow-lg); animation: pop 0.18s ease; }
+.tour-prompt p { margin: 0; }
+@media (max-width: 640px) {
+  .tour-prompt { right: 16px; left: 16px; bottom: 16px; width: auto; }
+}
+.guides-card { margin-top: 16px; }
+.guide-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.guide-list li { display: flex; align-items: center; gap: 12px; padding: 9px 0; border-top: 1px solid var(--border); }
+.guide-list li:first-child { border-top: none; }
+.guide-done { color: var(--text-faint); }

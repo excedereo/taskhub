@@ -51,7 +51,7 @@ export function useOptimisticOrder<T extends { id: number }>(items: T[], save: (
 
 function EditorCard({ title, hint, children }: { title: string; hint: string; children: ReactNode }) {
   return (
-    <section className="card form workflow-card">
+    <section className="card form workflow-card" data-tour={title.toLowerCase()}>
       <div className="stack">
         <span>{title}</span>
         <span className="muted small">{hint}</span>

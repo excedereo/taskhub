@@ -10,9 +10,9 @@ import { cx, displayName } from '../util.ts'
 import { Avatar, BrandMark } from './ui.tsx'
 import { CategoryModal } from './CategoryModal.tsx'
 
-function NavItem({ to, icon, label, active, count, collapsed }: { to: string; icon: ReactNode; label: string; active: boolean; count?: number; collapsed: boolean }) {
+function NavItem({ to, icon, label, active, count, collapsed, tour }: { to: string; icon: ReactNode; label: string; active: boolean; count?: number; collapsed: boolean; tour?: string }) {
   return (
-    <Link to={to} className={cx('nav-item', active && 'active')} title={collapsed ? label : undefined} aria-current={active ? 'page' : undefined}>
+    <Link data-tour={tour} to={to} className={cx('nav-item', active && 'active')} title={collapsed ? label : undefined} aria-current={active ? 'page' : undefined}>
       <span className="nav-icon">{icon}</span>
       <span className="nav-label">{label}</span>
       {!!count && <span className="nav-count">{count}</span>}
@@ -47,13 +47,13 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
 
       <nav className="sidebar-scroll">
         <div className="nav-group">
-          <NavItem to="/tasks?assignee=me" icon={<Inbox size={16} />} label="My tasks" active={onTasks && params.get('assignee') === 'me'} collapsed={collapsed} />
-          <NavItem to="/tasks" icon={<Layers size={16} />} label="All tasks" active={onTasks && params.get('assignee') !== 'me'} collapsed={collapsed} />
-          <NavItem to="/analytics" icon={<ChartColumn size={16} />} label="Analytics" active={pathname === '/analytics'} collapsed={collapsed} />
-          <NavItem to="/archived" icon={<Archive size={16} />} label="Archived" active={pathname === '/archived'} collapsed={collapsed} />
+          <NavItem to="/tasks?assignee=me" icon={<Inbox size={16} />} label="My tasks" tour="nav-my" active={onTasks && params.get('assignee') === 'me'} collapsed={collapsed} />
+          <NavItem to="/tasks" icon={<Layers size={16} />} label="All tasks" tour="nav-all" active={onTasks && params.get('assignee') !== 'me'} collapsed={collapsed} />
+          <NavItem to="/analytics" icon={<ChartColumn size={16} />} label="Analytics" tour="nav-analytics" active={pathname === '/analytics'} collapsed={collapsed} />
+          <NavItem to="/archived" icon={<Archive size={16} />} label="Archived" tour="nav-archived" active={pathname === '/archived'} collapsed={collapsed} />
         </div>
 
-        <div className="nav-group">
+        <div className="nav-group" data-tour="nav-categories">
           <div className="nav-heading">
             <span>Categories</span>
             {can('manage_categories') && !arranging && (
@@ -63,7 +63,7 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
                     <Settings2 size={14} />
                   </button>
                 )}
-                <button className="icon-btn icon-btn-sm" onClick={() => setCreating(true)} aria-label="New category" title="New category">
+                <button className="icon-btn icon-btn-sm" data-tour="new-category" onClick={() => setCreating(true)} aria-label="New category" title="New category">
                   <Plus size={14} />
                 </button>
               </span>
@@ -81,28 +81,28 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
 
         {/* Admin pages only show up for people who can actually use them. */}
         {(can('manage_users') || can('manage_roles') || can('view_audit') || can('manage_settings') || can('manage_categories') || can('manage_integrations')) && (
-          <div className="nav-group">
+          <div className="nav-group" data-tour="nav-team">
             <div className="nav-heading">
               <span>Team</span>
             </div>
-            {can('manage_users') && <NavItem to="/users" icon={<Users size={16} />} label="Users" active={pathname === '/users'} collapsed={collapsed} />}
-            {can('manage_roles') && <NavItem to="/roles" icon={<Shield size={16} />} label="Roles" active={pathname === '/roles'} collapsed={collapsed} />}
-            {can('view_audit') && <NavItem to="/audit" icon={<ScrollText size={16} />} label="Audit log" active={pathname === '/audit'} collapsed={collapsed} />}
-            {(can('manage_settings') || can('manage_categories')) && <NavItem to="/workspace" icon={<Building2 size={16} />} label="Workspace settings" active={pathname === '/workspace'} collapsed={collapsed} />}
-            {can('manage_integrations') && <NavItem to="/integrations" icon={<Webhook size={16} />} label="Integrations" active={pathname === '/integrations'} collapsed={collapsed} />}
+            {can('manage_users') && <NavItem to="/users" icon={<Users size={16} />} label="Users" tour="nav-users" active={pathname === '/users'} collapsed={collapsed} />}
+            {can('manage_roles') && <NavItem to="/roles" icon={<Shield size={16} />} label="Roles" tour="nav-roles" active={pathname === '/roles'} collapsed={collapsed} />}
+            {can('view_audit') && <NavItem to="/audit" icon={<ScrollText size={16} />} label="Audit log" tour="nav-audit" active={pathname === '/audit'} collapsed={collapsed} />}
+            {(can('manage_settings') || can('manage_categories')) && <NavItem to="/workspace" icon={<Building2 size={16} />} label="Workspace settings" tour="nav-workspace" active={pathname === '/workspace'} collapsed={collapsed} />}
+            {can('manage_integrations') && <NavItem to="/integrations" icon={<Webhook size={16} />} label="Integrations" tour="nav-integrations" active={pathname === '/integrations'} collapsed={collapsed} />}
           </div>
         )}
       </nav>
 
       <div className="sidebar-foot">
-        <Link to="/profile" className={cx('profile-link', pathname === '/profile' && 'active')} title={collapsed ? displayName(me) : undefined}>
+        <Link data-tour="nav-profile" to="/profile" className={cx('profile-link', pathname === '/profile' && 'active')} title={collapsed ? displayName(me) : undefined}>
           <Avatar user={me} size={28} />
           <span className="profile-text">
             <span className="truncate">{displayName(me)}</span>
             <span className="muted small truncate">{me.roleName}</span>
           </span>
         </Link>
-        <Link to="/settings" className={cx('icon-btn sign-out', pathname === '/settings' && 'active')} aria-label="Settings" title="Settings">
+        <Link data-tour="nav-settings" to="/settings" className={cx('icon-btn sign-out', pathname === '/settings' && 'active')} aria-label="Settings" title="Settings">
           <Settings size={16} />
         </Link>
         <button className="icon-btn sign-out" onClick={() => signOut().then(() => navigate('/login'))} aria-label="Sign out" title="Sign out">

@@ -93,14 +93,14 @@ export function UsersPage() {
         description={`${users.filter((u) => u.status !== 'disabled').length} people on the team`}
         actions={
           canManage && (
-            <button className="btn btn-primary" onClick={() => setAdding(true)}>
+            <button className="btn btn-primary" data-tour="add-user" onClick={() => setAdding(true)}>
               <UserPlus size={14} /> Add user
             </button>
           )
         }
       />
 
-      <div className="table">
+      <div className="table" data-tour="users-table">
         <div className="table-head users-grid">
           {head('name', 'User')}
           {head('role', 'Role')}
