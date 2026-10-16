@@ -6,7 +6,7 @@ import { api } from '../api.ts'
 import { useData, useSession } from '../store.tsx'
 import type { AuditEvent } from '../types.ts'
 import { cx, displayName, formatDate, timeAgo } from '../util.ts'
-import { Avatar, Empty, PageHeader } from '../components/ui.tsx'
+import { Avatar, Empty, PageHeader, ViaTag } from '../components/ui.tsx'
 import { describeEvent } from '../components/describeEvent.tsx'
 import { useToast } from '../components/Toast.tsx'
 
@@ -24,7 +24,7 @@ type Page = { items: AuditEvent[]; nextCursor: number | null }
 
 export function AuditPage() {
   const { meta } = useSession()
-  const { userById, roleById, categoryById, users, can } = useData()
+  const { userById, roleById, categoryById, priorityById, statusById, users, can } = useData()
   const toast = useToast()
   const [entityType, setEntityType] = useState('')
   const [actorId, setActorId] = useState('')
@@ -64,7 +64,7 @@ export function AuditPage() {
 
   if (!can('view_audit')) return <div className="page"><Empty title="You do not have access to the audit log" /></div>
 
-  const ctx = { userById, roleById, categoryById, permissions: meta?.permissions ?? [] }
+  const ctx = { userById, roleById, categoryById, priorityById, statusById, permissions: meta?.permissions ?? [] }
 
   return (
     <div className="page">
@@ -109,6 +109,7 @@ export function AuditPage() {
                 <Avatar user={actor} size={28} />
                 <span className="audit-text">
                   <strong>{displayName(actor)}</strong> {describeEvent(e, ctx)}
+                  <ViaTag via={e.data.via} />
                   {e.entityType === 'task' && e.action !== 'task.deleted' && (
                     <Link className="audit-link" to={`/tasks?status=all&task=${e.entityId}`}>
                       Open

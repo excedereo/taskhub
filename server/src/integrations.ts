@@ -136,7 +136,7 @@ export type Embed = { color: number; description: string }
 export function buildEmbed(e: AuditEntry): Embed | null {
   const d = e.data
   const changes = (d.changes ?? {}) as Changes
-  const actor = `**${esc(userName(e.actorId))}`
+  const actor = `**${esc(userName(e.actorId))}${d.via ? ` (via ${esc(d.via)})` : ''}`
   const name = `**${esc(d.name)}**`
 
   if (e.entityType === 'task') {
@@ -225,6 +225,8 @@ export function buildEmbed(e: AuditEntry): Embed | null {
     'user.invited': `added ${name} to the team`,
     'user.updated': `changed ${name}`,
     'user.removed': `removed ${name}`,
+    'user.token_created': `created an API token`,
+    'user.token_revoked': `revoked an API token`,
     'user.joined': 'joined the team',
     'user.activated': 'signed in for the first time',
     'user.bootstrap': 'set up this instance',

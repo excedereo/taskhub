@@ -1,4 +1,5 @@
 import { db } from './db.ts'
+import { requestContext } from './context.ts'
 
 export type EntityType = 'user' | 'role' | 'category' | 'task' | 'settings' | 'label' | 'priority' | 'status' | 'integration' | 'theme'
 
@@ -12,6 +13,9 @@ export function onAudit(fn: (entry: AuditEntry) => void) {
 }
 
 export function audit(actorId: number | null, entityType: EntityType, entityId: number | null, action: string, data: Record<string, unknown> = {}) {
+  // Actions made through an API token say so, e.g. "via Claude Code".
+  const via = requestContext.getStore()?.via
+  if (via) data = { ...data, via }
   db.prepare('INSERT INTO audit_log (actor_id, entity_type, entity_id, action, data, created_at) VALUES (?, ?, ?, ?, ?, ?)')
     .run(actorId, entityType, entityId, action, JSON.stringify(data), Date.now())
   for (const fn of listeners) {

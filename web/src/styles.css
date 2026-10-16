@@ -1334,3 +1334,18 @@ body.dragging * { cursor: grabbing !important; user-select: none; }
 @media (max-width: 860px) {
   .role-li .grip { display: none; }
 }
+
+/* API tokens */
+.via-tag { display: inline-flex; align-items: center; margin-left: 6px; padding: 0 6px; height: 18px; border: 1px solid var(--border); border-radius: 999px; font-size: 11px; color: var(--text-muted); vertical-align: 1px; white-space: nowrap; }
+.token-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.token-list li { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--border); min-width: 0; }
+.token-list li:first-child { border-top: none; }
+.token-new { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.token-new .input { flex: 1 1 200px; min-width: 0; }
+.token-secret { display: flex; flex-direction: column; gap: 10px; padding: 14px; border: 1px solid var(--border-strong); border-radius: var(--radius); background: var(--bg-subtle); }
+.token-code { display: flex; align-items: flex-start; gap: 8px; min-width: 0; }
+.token-code pre { flex: 1; min-width: 0; margin: 0; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); font-family: var(--mono); font-size: 12px; line-height: 1.5; white-space: pre-wrap; word-break: break-all; }
+.token-help { display: flex; flex-direction: column; gap: 8px; }
+.token-help summary { cursor: pointer; color: var(--text-muted); font-size: 13px; }
+.token-help summary:hover { color: var(--text); }
+.token-done { align-self: flex-start; }

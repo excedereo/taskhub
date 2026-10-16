@@ -55,6 +55,10 @@ export function describeEvent(e: AuditEvent, ctx: EventContext, inTask = false):
       return 'signed in for the first time'
     case 'user.invited':
       return <>added Discord user {name} as {role(d.roleId)}</>
+    case 'user.token_created':
+      return <>created an API token <B>{String(d.token ?? '')}</B>{d.readOnly ? ' (read-only)' : ''}</>
+    case 'user.token_revoked':
+      return <>revoked the API token <B>{String(d.token ?? '')}</B></>
     case 'user.removed':
       return <>removed the invitation for {name}</>
     case 'user.updated': {

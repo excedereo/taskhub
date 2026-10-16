@@ -22,6 +22,8 @@ import { statusesRouter } from './routes/statuses.ts'
 import { logoRouter, logoUrl, serveLogo } from './routes/logo.ts'
 import { integrationsRouter } from './routes/integrations.ts'
 import { serveThemeAsset, themesRouter } from './routes/themes.ts'
+import { tokensRouter } from './routes/tokens.ts'
+import { mcpRouter } from './routes/mcp.ts'
 import { startWebhookWorker } from './integrations.ts'
 
 // Many cheap VPS hosts ship broken IPv6; prefer IPv4 when talking to Discord.
@@ -84,6 +86,8 @@ api.use(statusesRouter)
 api.use(logoRouter)
 api.use(integrationsRouter)
 api.use(themesRouter)
+api.use(tokensRouter)
+api.use(mcpRouter)
 
 app.use('/api', api)
 app.use('/api', (_req, _res, next) => next(new HttpError(404, 'Unknown endpoint')))

@@ -92,6 +92,16 @@ export function PriorityIcon({ id }: { id: number }) {
   )
 }
 
+/** Marks actions done through an API token, e.g. by an AI agent. */
+export function ViaTag({ via }: { via: unknown }) {
+  if (typeof via !== 'string' || !via) return null
+  return (
+    <span className="via-tag" title="Done through an API token">
+      via {via}
+    </span>
+  )
+}
+
 export function RoleBadge({ role }: { role: Pick<Role, 'name' | 'color'> | undefined }) {
   if (!role) return <span className="badge">No role</span>
   return (

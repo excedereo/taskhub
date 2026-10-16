@@ -12,6 +12,7 @@ export const PERMISSIONS = [
   { key: 'take_tasks', label: 'Take tasks', description: 'Pick up unassigned tasks for themselves.' },
   { key: 'view_audit', label: 'View audit log', description: 'See the full history of changes across the instance.' },
   { key: 'manage_themes', label: 'Manage themes', description: 'Create workspace themes anyone can pick, including custom CSS. Treat it as close to admin.' },
+  { key: 'use_api', label: 'Use the API and AI agents', description: "Create personal API tokens, so scripts and AI agents can act with this role's permissions." },
   { key: 'manage_integrations', label: 'Manage integrations', description: 'Connect Discord webhooks and choose which events they post.' },
 ] as const
 

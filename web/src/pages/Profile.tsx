@@ -7,11 +7,12 @@ import type { Task } from '../types.ts'
 import { displayName, timeAgo } from '../util.ts'
 import { Avatar, PageHeader, PriorityIcon, RoleBadge, StatusIcon } from '../components/ui.tsx'
 import { useToast } from '../components/Toast.tsx'
+import { ApiTokens } from '../components/ApiTokens.tsx'
 
 export function ProfilePage() {
   const me = useMe()
   const { meta, signOut } = useSession()
-  const { roleById, categoryById, statuses, isDone } = useData()
+  const { roleById, categoryById, statuses, isDone, can } = useData()
   const toast = useToast()
   const navigate = useNavigate()
   const [tasks, setTasks] = useState<Task[]>([])
@@ -94,6 +95,8 @@ export function ProfilePage() {
           ))}
         </ul>
       </section>
+
+      {can('use_api') && <ApiTokens />}
     </div>
   )
 }

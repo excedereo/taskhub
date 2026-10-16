@@ -3,6 +3,9 @@ import type { NextFunction, Request, Response } from 'express'
 import { config } from './config.ts'
 import { db, getSetting, transaction } from './db.ts'
 import { audit } from './audit.ts'
+import { requestContext } from './context.ts'
+import { HttpError } from './http.ts'
+import { hasPermission } from './permissions.ts'
 
 export const SESSION_COOKIE = 'taskhub_session'
 
@@ -37,35 +40,88 @@ type SessionRow = {
 }
 
 // Only a hash of the token is stored, so a leaked database cannot be used to hijack sessions.
-const hashToken = (token: string) => createHash('sha256').update(token).digest('hex')
+export const hashToken = (token: string) => createHash('sha256').update(token).digest('hex')
+
+const USER_COLUMNS = `
+  u.id, u.discord_id, u.username, u.display_name, u.avatar, u.role_id,
+  r.name AS role_name, r.color AS role_color, r.permissions, r.create_categories, r.view_categories`
+
+const toSessionUser = (row: SessionRow): SessionUser => ({
+  id: row.id,
+  discordId: row.discord_id,
+  username: row.username,
+  displayName: row.display_name,
+  avatar: row.avatar,
+  roleId: row.role_id,
+  roleName: row.role_name,
+  roleColor: row.role_color,
+  permissions: JSON.parse(row.permissions),
+  createCategoryIds: row.create_categories === null ? null : JSON.parse(row.create_categories),
+  viewCategoryIds: row.view_categories === null ? null : JSON.parse(row.view_categories),
+})
+
+/** Requests the server makes to itself (MCP tools calling the API) skip the rate limit; this proves they are ours. */
+export const INTERNAL_SECRET = randomBytes(24).toString('hex')
+
+const RATE_LIMIT = 120
+const RATE_WINDOW_MS = 60_000
+const usage = new Map<number, { start: number; count: number }>()
+
+function rateLimited(tokenId: number) {
+  const now = Date.now()
+  const slot = usage.get(tokenId)
+  if (!slot || now - slot.start > RATE_WINDOW_MS) {
+    usage.set(tokenId, { start: now, count: 1 })
+    return false
+  }
+  slot.count++
+  return slot.count > RATE_LIMIT
+}
+
+type TokenRow = SessionRow & { token_id: number; token_name: string; read_only: number; last_used_at: number | null }
+
+/** `Authorization: Bearer th_...`: a personal API token acts as its owner, with their current role. */
+function tokenAuth(req: Request, header: string, next: NextFunction) {
+  const token = header.slice(7).trim()
+  const row = db.prepare(`
+    SELECT ${USER_COLUMNS}, t.id AS token_id, t.name AS token_name, t.read_only, t.last_used_at
+    FROM api_tokens t
+    JOIN users u ON u.id = t.user_id
+    JOIN roles r ON r.id = u.role_id
+    WHERE t.token_hash = ? AND (t.expires_at IS NULL OR t.expires_at > ?) AND u.status = 'active'
+  `).get(hashToken(token), Date.now()) as TokenRow | undefined
+  if (!row) return next(new HttpError(401, 'Invalid, expired or revoked API token'))
+
+  const user = toSessionUser(row)
+  // Taking "Use the API" away from a role switches its tokens off at once.
+  if (!hasPermission(user.permissions, 'use_api')) return next(new HttpError(403, 'Your role is no longer allowed to use the API'))
+  if (req.get('x-taskhub-internal') !== INTERNAL_SECRET && rateLimited(row.token_id)) {
+    return next(new HttpError(429, `Too many requests: at most ${RATE_LIMIT} a minute per token`))
+  }
+  const readOnly = Boolean(row.read_only)
+  // MCP is a POST even for reading; its write tools are hidden, and their API calls are checked here again.
+  if (readOnly && !['GET', 'HEAD'].includes(req.method) && req.path !== '/api/mcp') return next(new HttpError(403, 'This API token is read-only'))
+
+  if (!row.last_used_at || Date.now() - row.last_used_at > 60_000) db.prepare('UPDATE api_tokens SET last_used_at = ? WHERE id = ?').run(Date.now(), row.token_id)
+  req.user = user
+  req.apiToken = { id: row.token_id, name: row.token_name, readOnly }
+  requestContext.run({ via: row.token_name }, next)
+}
 
 export function sessionMiddleware(req: Request, _res: Response, next: NextFunction) {
+  const header = req.get('authorization')
+  if (header && /^bearer th_/i.test(header)) return tokenAuth(req, header, next)
   const token: unknown = req.cookies?.[SESSION_COOKIE]
   if (typeof token === 'string' && token) {
     const row = db.prepare(`
-      SELECT u.id, u.discord_id, u.username, u.display_name, u.avatar, u.role_id,
-             r.name AS role_name, r.color AS role_color, r.permissions, r.create_categories, r.view_categories
+      SELECT ${USER_COLUMNS}
       FROM sessions s
       JOIN users u ON u.id = s.user_id
       JOIN roles r ON r.id = u.role_id
       WHERE s.token = ? AND s.expires_at > ? AND u.status = 'active'
     `).get(hashToken(token), Date.now()) as SessionRow | undefined
 
-    if (row) {
-      req.user = {
-        id: row.id,
-        discordId: row.discord_id,
-        username: row.username,
-        displayName: row.display_name,
-        avatar: row.avatar,
-        roleId: row.role_id,
-        roleName: row.role_name,
-        roleColor: row.role_color,
-        permissions: JSON.parse(row.permissions),
-        createCategoryIds: row.create_categories === null ? null : JSON.parse(row.create_categories),
-        viewCategoryIds: row.view_categories === null ? null : JSON.parse(row.view_categories),
-      }
-    }
+    if (row) req.user = toSessionUser(row)
   }
   next()
 }

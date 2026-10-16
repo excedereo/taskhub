@@ -4,7 +4,7 @@ import { api, imageFiles, uploadImage } from '../api.ts'
 import { useData, useMe, useSession } from '../store.tsx'
 import type { Attachment, AuditEvent, Task } from '../types.ts'
 import { cx, displayName, formatDate, timeAgo } from '../util.ts'
-import { Avatar, ConfirmButton, DueBadge, PriorityIcon, StatusIcon, UserChip } from './ui.tsx'
+import { Avatar, ConfirmButton, DueBadge, PriorityIcon, StatusIcon, UserChip, ViaTag } from './ui.tsx'
 import { LabelPicker } from './LabelPicker.tsx'
 import { Select } from './Select.tsx'
 import { AutoTextarea } from './AutoTextarea.tsx'
@@ -458,6 +458,7 @@ export function TaskPanel({ taskId, onClose, onOpenTask, onChanged, onDeleted }:
                   <Avatar user={e.actorId ? userById.get(e.actorId) : null} size={20} />
                   <span>
                     <strong>{displayName(e.actorId ? userById.get(e.actorId) : null)}</strong> {describeEvent(e, ctx, true)}
+                    <ViaTag via={e.data.via} />
                     <span className="muted small" title={formatDate(e.createdAt)}>
                       {' '}
                       · {timeAgo(e.createdAt)}

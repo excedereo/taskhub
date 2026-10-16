@@ -259,6 +259,21 @@ const migrations: string[] = [
     CASE WHEN status != 'invited' THEN created_at END
   );
   `,
+  `
+  -- Personal API tokens: scripts and AI agents act as the person, with exactly their role's rights.
+  CREATE TABLE api_tokens (
+    id           INTEGER PRIMARY KEY,
+    user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name         TEXT NOT NULL,
+    token_hash   TEXT NOT NULL UNIQUE,
+    hint         TEXT NOT NULL,
+    read_only    INTEGER NOT NULL DEFAULT 0,
+    expires_at   INTEGER,
+    last_used_at INTEGER,
+    created_at   INTEGER NOT NULL
+  );
+  CREATE INDEX api_tokens_user ON api_tokens(user_id);
+  `,
 ]
 
 const current = (db.prepare('PRAGMA user_version').get() as { user_version: number }).user_version

@@ -23,6 +23,7 @@ A small self-hosted task tracker for dev teams. People sign in with Discord, wor
 **Overview**
 - **Analytics.** Open, in progress, in review and finished at a glance, unfinished work by category, progress per stage, tasks stuck for days, and workload per person.
 - **Audit log.** Every change to tasks, categories, users, roles and settings, with who did it and what changed. Each task also shows its own history.
+- **API and AI agents.** Personal API tokens and a built-in MCP server, so Claude Code and other agents can find, create, take and update tasks with exactly their owner's permissions. Their changes are marked in the history. See [docs/API.md](docs/API.md).
 - **Discord webhooks.** Post a feed of chosen events (new tasks, status changes, finished work, and more) to any Discord channel, limited to the categories you pick. Bursts are combined into one message and Discord rate limits are respected.
 
 **Small and easy to run**

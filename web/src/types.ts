@@ -168,3 +168,13 @@ export type Webhook = {
 }
 
 export type EventGroup = { label: string; kinds: { key: string; label: string }[] }
+
+export type ApiToken = {
+  id: number
+  name: string
+  hint: string
+  readOnly: boolean
+  expiresAt: number | null
+  lastUsedAt: number | null
+  createdAt: number
+}
