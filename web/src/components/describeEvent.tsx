@@ -97,6 +97,10 @@ export function describeEvent(e: AuditEvent, ctx: EventContext, inTask = false):
       return <>assigned{task || ' this task'} to {user(changes.assignee_id?.[1])}</>
     case 'task.unassigned':
       return <>unassigned {user(changes.assignee_id?.[0])} from{task || ' this task'}</>
+    case 'task.attachment_added':
+      return <>attached {name}{task && <> to{task}</>}</>
+    case 'task.attachment_removed':
+      return <>removed the image {name}{task && <> from{task}</>}</>
     case 'task.updated': {
       const parts: ReactNode[] = []
       if (changes.status) parts.push(<>moved{task} from <B>{statusLabel(changes.status[0] as Status)}</B> to <B>{statusLabel(changes.status[1] as Status)}</B></>)

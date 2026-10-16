@@ -69,6 +69,9 @@ export function RoleBadge({ role }: { role: Pick<Role, 'name' | 'color'> | undef
   )
 }
 
+export const roleOptions = (roles: Role[]) =>
+  roles.map((r) => ({ value: r.id, label: r.name, icon: <span className="dot" style={{ background: r.color ?? 'var(--text-faint)' }} /> }))
+
 export function Modal({ title, onClose, children, footer, width = 440 }: { title: string; onClose: () => void; children: ReactNode; footer?: ReactNode; width?: number }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()

@@ -4,7 +4,9 @@ import { useData } from '../store.tsx'
 import type { Settings } from '../types.ts'
 import { cx } from '../util.ts'
 import { Empty, Field, PageHeader } from '../components/ui.tsx'
+import { Select } from '../components/Select.tsx'
 import { useToast } from '../components/Toast.tsx'
+import { roleOptions } from '../components/ui.tsx'
 
 export function SettingsPage() {
   const { roles, can, reloadRoles } = useData()
@@ -73,15 +75,7 @@ export function SettingsPage() {
         </div>
 
         <Field label="Default role" hint="Given to new users unless someone picks another role when adding them.">
-          <select className="input" value={form.defaultRoleId} onChange={(e) => setForm({ ...form, defaultRoleId: Number(e.target.value) })}>
-            {roles
-              .filter((r) => !r.isSystem)
-              .map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.name}
-                </option>
-              ))}
-          </select>
+          <Select aria-label="Default role" value={form.defaultRoleId} onChange={(defaultRoleId) => setForm({ ...form, defaultRoleId })} options={roleOptions(roles.filter((r) => !r.isSystem))} />
         </Field>
 
         <div className="editor-actions">

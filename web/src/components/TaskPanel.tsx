@@ -1,10 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { Trash2, X } from 'lucide-react'
-import { api } from '../api.ts'
+import { useCallback, useEffect, useRef, useState, type DragEvent } from 'react'
+import { Hash, ImagePlus, Trash2, X } from 'lucide-react'
+import { api, imageFiles, uploadImage } from '../api.ts'
 import { useData, useMe, useSession } from '../store.tsx'
-import { PRIORITIES, STATUSES, type AuditEvent, type Priority, type Status, type Task } from '../types.ts'
+import { PRIORITIES, STATUSES, type Attachment, type AuditEvent, type Task } from '../types.ts'
 import { displayName, formatDate, timeAgo } from '../util.ts'
 import { Avatar, ConfirmButton, PriorityIcon, StatusIcon, UserChip } from './ui.tsx'
+import { Select } from './Select.tsx'
+import { AutoTextarea } from './AutoTextarea.tsx'
+import { Gallery, type GalleryItem } from './Gallery.tsx'
 import { describeEvent } from './describeEvent.tsx'
 import { useToast } from './Toast.tsx'
 
@@ -15,6 +18,11 @@ type Props = {
   onDeleted: (id: number) => void
 }
 
+type TaskDetails = { task: Task; history: AuditEvent[]; attachments: Attachment[] }
+type Pending = { key: string; url: string; name: string; width: number | null; height: number | null }
+
+let pendingSeq = 0
+
 export function TaskPanel({ taskId, onClose, onChanged, onDeleted }: Props) {
   const me = useMe()
   const { meta } = useSession()
@@ -22,20 +30,26 @@ export function TaskPanel({ taskId, onClose, onChanged, onDeleted }: Props) {
   const toast = useToast()
   const [task, setTask] = useState<Task | null>(null)
   const [history, setHistory] = useState<AuditEvent[]>([])
+  const [attachments, setAttachments] = useState<Attachment[]>([])
+  const [pending, setPending] = useState<Pending[]>([])
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
+  const [dragging, setDragging] = useState(false)
 
-  // The parent passes a fresh closure every render; reading it through a ref keeps `load` stable.
+  // The parent passes fresh closures every render; reading them through refs keeps the callbacks stable.
   const closeRef = useRef(onClose)
+  const changedRef = useRef(onChanged)
   useEffect(() => {
     closeRef.current = onClose
+    changedRef.current = onChanged
   })
 
   const load = useCallback(async () => {
     try {
-      const res = await api.get<{ task: Task; history: AuditEvent[] }>(`/tasks/${taskId}`)
+      const res = await api.get<TaskDetails>(`/tasks/${taskId}`)
       setTask(res.task)
       setHistory(res.history)
+      setAttachments(res.attachments)
       setTitle(res.task.title)
       setDescription(res.task.description)
     } catch (err) {
@@ -43,6 +57,15 @@ export function TaskPanel({ taskId, onClose, onChanged, onDeleted }: Props) {
       closeRef.current()
     }
   }, [taskId, toast])
+
+  /** Re-reads server state without touching fields the user may be typing in. */
+  const refresh = useCallback(async () => {
+    const res = await api.get<TaskDetails>(`/tasks/${taskId}`)
+    setTask(res.task)
+    setHistory(res.history)
+    setAttachments(res.attachments)
+    changedRef.current(res.task)
+  }, [taskId])
 
   useEffect(() => {
     load()
@@ -54,6 +77,45 @@ export function TaskPanel({ taskId, onClose, onChanged, onDeleted }: Props) {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
+  const isCreator = task?.creatorId === me.id
+  const isAssignee = task?.assigneeId === me.id
+  const canEdit = can('edit_tasks') || isCreator
+  const canWork = canEdit || isAssignee
+
+  const upload = useCallback(
+    async (files: File[]) => {
+      const queued = files.map((file) => ({ file, key: `p${++pendingSeq}`, url: URL.createObjectURL(file) }))
+      setPending((p) => [...p, ...queued.map(({ key, url, file }) => ({ key, url, name: file.name, width: null, height: null }))])
+      await Promise.all(
+        queued.map(async ({ file, key, url }) => {
+          try {
+            await uploadImage<Attachment>(taskId, file)
+          } catch (err) {
+            toast.error(err)
+          } finally {
+            setPending((p) => p.filter((x) => x.key !== key))
+            URL.revokeObjectURL(url)
+          }
+        }),
+      )
+      await refresh().catch(toast.error)
+    },
+    [taskId, refresh, toast],
+  )
+
+  // Paste screenshots straight into the open task.
+  useEffect(() => {
+    if (!canWork) return
+    const onPaste = (e: ClipboardEvent) => {
+      const files = imageFiles(e.clipboardData?.items)
+      if (!files.length) return
+      e.preventDefault()
+      upload(files)
+    }
+    window.addEventListener('paste', onPaste)
+    return () => window.removeEventListener('paste', onPaste)
+  }, [canWork, upload])
+
   if (!task) {
     return (
       <div className="panel-backdrop" onMouseDown={onClose}>
@@ -62,31 +124,24 @@ export function TaskPanel({ taskId, onClose, onChanged, onDeleted }: Props) {
     )
   }
 
-  const isCreator = task.creatorId === me.id
-  const isAssignee = task.assigneeId === me.id
-  const canEdit = can('edit_tasks') || isCreator
-  const canStatus = canEdit || isAssignee
   const canAssign = can('assign_tasks')
   const canTake = (can('take_tasks') || canAssign) && task.assigneeId === null && task.status !== 'done'
 
-  async function mutate(request: () => Promise<Task>) {
+  async function mutate(request: () => Promise<unknown>) {
     try {
-      const updated = await request()
-      setTask(updated)
-      onChanged(updated)
+      await request()
       reloadCategories()
-      const res = await api.get<{ history: AuditEvent[] }>(`/tasks/${taskId}`)
-      setHistory(res.history)
+      await refresh()
     } catch (err) {
       toast.error(err)
       load()
     }
   }
 
-  const patch = (body: Partial<Pick<Task, 'title' | 'description' | 'status' | 'priority' | 'categoryId'>>) =>
-    mutate(() => api.patch<Task>(`/tasks/${task.id}`, body))
-  const assign = (userId: number | null) => mutate(() => api.post<Task>(`/tasks/${task.id}/assign`, { userId }))
-  const take = () => mutate(() => api.post<Task>(`/tasks/${task.id}/take`))
+  const patch = (body: Partial<Pick<Task, 'title' | 'description' | 'status' | 'priority' | 'categoryId'>>) => mutate(() => api.patch(`/tasks/${task.id}`, body))
+  const assign = (userId: number | null) => mutate(() => api.post(`/tasks/${task.id}/assign`, { userId }))
+  const take = () => mutate(() => api.post(`/tasks/${task.id}/take`))
+  const removeImage = (item: GalleryItem) => mutate(() => api.del(`/attachments/${item.key.slice(1)}`))
 
   const remove = async () => {
     try {
@@ -99,12 +154,53 @@ export function TaskPanel({ taskId, onClose, onChanged, onDeleted }: Props) {
     }
   }
 
+  const hasFiles = (e: DragEvent) => canWork && Array.from(e.dataTransfer.types).includes('Files')
+  const dropProps = {
+    onDragOver: (e: DragEvent) => {
+      if (!hasFiles(e)) return
+      e.preventDefault()
+      setDragging(true)
+    },
+    onDragLeave: (e: DragEvent) => {
+      if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDragging(false)
+    },
+    onDrop: (e: DragEvent) => {
+      if (!hasFiles(e)) return
+      e.preventDefault()
+      setDragging(false)
+      const files = imageFiles(e.dataTransfer.files)
+      if (files.length) upload(files)
+      else toast.info('Only images can be attached')
+    },
+  }
+
+  const gallery: GalleryItem[] = [
+    ...attachments.map((a) => ({
+      key: `a${a.id}`,
+      src: a.url,
+      name: a.name,
+      width: a.width,
+      height: a.height,
+      size: a.size,
+      meta: <>added by {displayName(a.uploaderId ? userById.get(a.uploaderId) : null)} {timeAgo(a.createdAt)}</>,
+      removable: a.uploaderId === me.id || canEdit,
+      downloadUrl: `${a.url}?download=1`,
+    })),
+    ...pending.map((p) => ({ ...p, src: p.url, pending: true })),
+  ]
+
   const ctx = { userById, roleById, categoryById, permissions: meta?.permissions ?? [] }
   const category = categoryById.get(task.categoryId)
+  const assigneeOptions = [
+    { value: null, label: 'Unassigned', icon: <span className="avatar avatar-empty" style={{ width: 18, height: 18 }} /> },
+    ...users
+      .filter((u) => u.status !== 'disabled' || u.id === task.assigneeId)
+      .map((u) => ({ value: u.id, label: u.id === me.id ? `${displayName(u)} (me)` : displayName(u), icon: <Avatar user={u} size={18} /> })),
+  ]
 
   return (
     <div className="panel-backdrop" onMouseDown={onClose}>
-      <aside className="panel" onMouseDown={(e) => e.stopPropagation()} aria-label={`Task #${task.id}`}>
+      <aside className="panel" onMouseDown={(e) => e.stopPropagation()} aria-label={`Task #${task.id}`} {...dropProps}>
         <div className="panel-head">
           <span className="muted small">
             #{task.id} · {category?.name ?? 'Unknown category'}
@@ -123,13 +219,13 @@ export function TaskPanel({ taskId, onClose, onChanged, onDeleted }: Props) {
 
         <div className="panel-body">
           {canEdit ? (
-            <textarea
+            <AutoTextarea
               className="title-input"
-              rows={1}
+              minRows={1}
               value={title}
               maxLength={200}
               onChange={(e) => setTitle(e.target.value.replace(/\n/g, ''))}
-              onBlur={() => title.trim() && title !== task.title ? patch({ title }) : setTitle(task.title)}
+              onBlur={() => (title.trim() && title !== task.title ? patch({ title }) : setTitle(task.title))}
               onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), e.currentTarget.blur())}
             />
           ) : (
@@ -139,49 +235,32 @@ export function TaskPanel({ taskId, onClose, onChanged, onDeleted }: Props) {
           <dl className="props">
             <dt>Status</dt>
             <dd>
-              <span className="select-with-icon">
-                <StatusIcon status={task.status} />
-                <select className="input input-ghost" value={task.status} disabled={!canStatus} onChange={(e) => patch({ status: e.target.value as Status })}>
-                  {STATUSES.map((s) => (
-                    <option key={s.key} value={s.key}>
-                      {s.label}
-                    </option>
-                  ))}
-                </select>
-              </span>
+              <Select
+                variant="ghost"
+                aria-label="Status"
+                value={task.status}
+                disabled={!canWork}
+                onChange={(status) => patch({ status })}
+                options={STATUSES.map((s) => ({ value: s.key, label: s.label, icon: <StatusIcon status={s.key} /> }))}
+              />
             </dd>
 
             <dt>Priority</dt>
             <dd>
-              <span className="select-with-icon">
-                <PriorityIcon priority={task.priority} />
-                <select className="input input-ghost" value={task.priority} disabled={!canEdit} onChange={(e) => patch({ priority: e.target.value as Priority })}>
-                  {PRIORITIES.map((p) => (
-                    <option key={p.key} value={p.key}>
-                      {p.label}
-                    </option>
-                  ))}
-                </select>
-              </span>
+              <Select
+                variant="ghost"
+                aria-label="Priority"
+                value={task.priority}
+                disabled={!canEdit}
+                onChange={(priority) => patch({ priority })}
+                options={PRIORITIES.map((p) => ({ value: p.key, label: p.label, icon: <PriorityIcon priority={p.key} /> }))}
+              />
             </dd>
 
             <dt>Assignee</dt>
             <dd className="row gap-xs wrap">
               {canAssign ? (
-                <span className="select-with-icon">
-                  <Avatar user={task.assigneeId ? userById.get(task.assigneeId) : null} size={18} />
-                  <select className="input input-ghost" value={task.assigneeId ?? ''} onChange={(e) => assign(e.target.value ? Number(e.target.value) : null)}>
-                    <option value="">Unassigned</option>
-                    {users
-                      .filter((u) => u.status !== 'disabled' || u.id === task.assigneeId)
-                      .map((u) => (
-                        <option key={u.id} value={u.id}>
-                          {displayName(u)}
-                          {u.id === me.id ? ' (me)' : ''}
-                        </option>
-                      ))}
-                  </select>
-                </span>
+                <Select variant="ghost" aria-label="Assignee" value={task.assigneeId} onChange={assign} options={assigneeOptions} />
               ) : task.assigneeId ? (
                 <UserChip user={userById.get(task.assigneeId)} />
               ) : (
@@ -201,15 +280,16 @@ export function TaskPanel({ taskId, onClose, onChanged, onDeleted }: Props) {
 
             <dt>Category</dt>
             <dd>
-              <select className="input input-ghost" value={task.categoryId} disabled={!canEdit} onChange={(e) => patch({ categoryId: Number(e.target.value) })}>
-                {categories
+              <Select
+                variant="ghost"
+                aria-label="Category"
+                value={task.categoryId}
+                disabled={!canEdit}
+                onChange={(categoryId) => patch({ categoryId })}
+                options={categories
                   .filter((c) => !c.archived || c.id === task.categoryId)
-                  .map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-              </select>
+                  .map((c) => ({ value: c.id, label: c.name, icon: <Hash size={14} className="muted" /> }))}
+              />
             </dd>
 
             <dt>Created by</dt>
@@ -231,9 +311,9 @@ export function TaskPanel({ taskId, onClose, onChanged, onDeleted }: Props) {
           <section className="panel-section">
             <h3>Description</h3>
             {canEdit ? (
-              <textarea
+              <AutoTextarea
                 className="input description-input"
-                rows={Math.min(16, Math.max(4, description.split('\n').length + 1))}
+                minRows={4}
                 value={description}
                 placeholder="Add a description…"
                 onChange={(e) => setDescription(e.target.value)}
@@ -245,6 +325,16 @@ export function TaskPanel({ taskId, onClose, onChanged, onDeleted }: Props) {
               <p className="muted">No description</p>
             )}
           </section>
+
+          {(gallery.length > 0 || canWork) && (
+            <section className="panel-section">
+              <h3>
+                Images {gallery.length > 0 && <span className="muted">{gallery.length}</span>}
+              </h3>
+              <Gallery items={gallery} onRemove={removeImage} onAdd={canWork ? upload : undefined} />
+              {canWork && <p className="muted small gallery-hint">Paste a screenshot with Ctrl+V or drop images anywhere on this panel.</p>}
+            </section>
+          )}
 
           <section className="panel-section">
             <h3>Activity</h3>
@@ -264,6 +354,13 @@ export function TaskPanel({ taskId, onClose, onChanged, onDeleted }: Props) {
             </ol>
           </section>
         </div>
+
+        {dragging && (
+          <div className="drop-overlay">
+            <ImagePlus size={28} />
+            <span>Drop images to attach</span>
+          </div>
+        )}
       </aside>
     </div>
   )

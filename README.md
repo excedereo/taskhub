@@ -9,6 +9,7 @@ A small self-hosted task tracker for dev teams. People sign in with Discord, tas
 - **Discord sign-in.** No passwords. The first person to sign in becomes the owner; everyone else is added by Discord user ID (or you can open registration to anyone).
 - **Roles and permissions.** Create roles with any mix of permissions: manage users, manage roles, manage categories, create, edit, delete, assign and take tasks, view the audit log, manage settings. People can only grant permissions they have themselves.
 - **Categories and tasks.** Tasks have a status (Open → In progress → In review → Done), a priority and an assignee. Anyone allowed can take an unassigned task, leads can assign to anyone.
+- **Images on tasks.** Paste a screenshot with Ctrl+V, drop files or pick them. Shown as a tidy grid with a full-screen viewer. Stored next to the database (`uploads/`), so one backup covers everything.
 - **Audit log.** Every change to tasks, categories, users, roles and settings is recorded with who did it and what changed. Each task shows its own history.
 - **Single process, single file database.** Node.js + SQLite (built into Node, no native modules), served behind one port. Runs fine on the smallest VPS.
 - Light and dark themes, collapsible sidebar, works on phones.
@@ -99,6 +100,7 @@ web/src/
 | `DATABASE_PATH` | `data/taskhub.db` | SQLite file location |
 | `SESSION_DAYS` | `30` | How long a sign-in lasts |
 | `DEV_LOGIN` | `false` | Sign in without Discord. Ignored in production |
+| `MAX_UPLOAD_MB` | `10` | Largest image that can be attached to a task |
 
 ## License
 

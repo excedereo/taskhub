@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
-import { Archive, Hash, Layers, Pencil, Plus, Search } from 'lucide-react'
+import { Archive, Hash, Image, Layers, Pencil, Plus, Search, Users } from 'lucide-react'
+import { Select } from '../components/Select.tsx'
 import { api } from '../api.ts'
 import { useData, useMe } from '../store.tsx'
 import { STATUSES, type Status, type Task } from '../types.ts'
@@ -152,18 +153,20 @@ export function TasksPage() {
             <Search size={14} />
             <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search or #id" aria-label="Search tasks" />
           </label>
-          <select className="input input-sm" value={assignee} onChange={(e) => setParam('assignee', e.target.value)} aria-label="Assignee filter">
-            <option value="">Anyone</option>
-            <option value="me">Assigned to me</option>
-            <option value="none">Unassigned</option>
-            {users
-              .filter((u) => u.id !== me.id && u.status !== 'invited')
-              .map((u) => (
-                <option key={u.id} value={u.id}>
-                  {displayName(u)}
-                </option>
-              ))}
-          </select>
+          <Select
+            variant="sm"
+            aria-label="Assignee filter"
+            value={assignee}
+            onChange={(v) => setParam('assignee', v)}
+            options={[
+              { value: '', label: 'Anyone', icon: <Users size={14} className="muted" /> },
+              { value: 'me', label: 'Assigned to me', icon: <Avatar user={me} size={18} /> },
+              { value: 'none', label: 'Unassigned', icon: <span className="avatar avatar-empty" style={{ width: 18, height: 18 }} /> },
+              ...users
+                .filter((u) => u.id !== me.id && u.status !== 'invited')
+                .map((u) => ({ value: String(u.id), label: displayName(u), icon: <Avatar user={u} size={18} /> })),
+            ]}
+          />
         </div>
       </div>
 
@@ -204,6 +207,11 @@ export function TasksPage() {
                         <span className="task-id">#{t.id}</span>
                         <StatusIcon status={t.status} />
                         <span className="task-title truncate">{t.title}</span>
+                        {t.attachmentCount > 0 && (
+                          <span className="task-images muted small" title={`${t.attachmentCount} image(s)`}>
+                            <Image size={13} /> {t.attachmentCount}
+                          </span>
+                        )}
                         {!category && <span className="badge task-category">{categoryById.get(t.categoryId)?.name}</span>}
                         <span className="task-time muted small" title={formatDate(t.updatedAt)}>
                           {timeAgo(t.updatedAt)}

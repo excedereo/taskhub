@@ -16,6 +16,9 @@ export const config = {
   publicUrl,
   secureCookies: publicUrl.startsWith('https://'),
   dbPath: path.resolve(rootDir, env.DATABASE_PATH ?? 'data/taskhub.db'),
+  // Uploaded images live next to the database, so one volume or backup covers both.
+  uploadsDir: path.join(path.dirname(path.resolve(rootDir, env.DATABASE_PATH ?? 'data/taskhub.db')), 'uploads'),
+  maxUploadMb: Number(env.MAX_UPLOAD_MB ?? 10),
   webDist: path.join(rootDir, 'web', 'dist'),
   discord: {
     clientId: env.DISCORD_CLIENT_ID ?? '',

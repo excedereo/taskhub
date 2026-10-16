@@ -13,6 +13,7 @@ import { usersRouter } from './routes/users.ts'
 import { rolesRouter } from './routes/roles.ts'
 import { categoriesRouter } from './routes/categories.ts'
 import { tasksRouter } from './routes/tasks.ts'
+import { attachmentsRouter } from './routes/attachments.ts'
 import { adminRouter } from './routes/admin.ts'
 
 // Many cheap VPS hosts ship broken IPv6; prefer IPv4 when talking to Discord.
@@ -49,6 +50,7 @@ api.use(usersRouter)
 api.use(rolesRouter)
 api.use(categoriesRouter)
 api.use(tasksRouter)
+api.use(attachmentsRouter)
 api.use(adminRouter)
 
 app.use('/api', api)
@@ -62,6 +64,9 @@ if (existsSync(config.webDist)) {
 app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
   if (err instanceof HttpError) return res.status(err.status).json({ error: err.message })
   if (err instanceof SyntaxError && 'body' in err) return res.status(400).json({ error: 'Invalid JSON body' })
+  if (err && typeof err === 'object' && 'type' in err && err.type === 'entity.too.large') {
+    return res.status(413).json({ error: `File is larger than ${config.maxUploadMb} MB` })
+  }
   console.error(err)
   res.status(500).json({ error: 'Internal server error' })
 })

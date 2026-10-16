@@ -68,6 +68,20 @@ export type Task = {
   createdAt: number
   updatedAt: number
   closedAt: number | null
+  attachmentCount: number
+}
+
+export type Attachment = {
+  id: number
+  taskId: number
+  uploaderId: number | null
+  name: string
+  mime: string
+  size: number
+  width: number | null
+  height: number | null
+  createdAt: number
+  url: string
 }
 
 export type AuditEvent = {

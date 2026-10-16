@@ -90,6 +90,21 @@ const migrations: string[] = [
     ('registration', '"invite"'),
     ('default_role_id', '2');
   `,
+  `
+  CREATE TABLE attachments (
+    id          INTEGER PRIMARY KEY,
+    task_id     INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    uploader_id INTEGER REFERENCES users(id),
+    file        TEXT NOT NULL,
+    name        TEXT NOT NULL,
+    mime        TEXT NOT NULL,
+    size        INTEGER NOT NULL,
+    width       INTEGER,
+    height      INTEGER,
+    created_at  INTEGER NOT NULL
+  );
+  CREATE INDEX attachments_task ON attachments(task_id);
+  `,
 ]
 
 const current = (db.prepare('PRAGMA user_version').get() as { user_version: number }).user_version

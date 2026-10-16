@@ -3,6 +3,7 @@ import type { SQLInputValue } from 'node:sqlite'
 import { db, transaction } from '../db.ts'
 import { audit, diff, serializeAudit, type AuditRow } from '../audit.ts'
 import { badRequest, can, forbidden, idParam, me, notFound, oneOf, optionalId, requirePermission, text } from '../http.ts'
+import { listAttachments, removeFiles } from './attachments.ts'
 
 export const tasksRouter = Router()
 
@@ -21,9 +22,11 @@ type TaskRow = {
   created_at: number
   updated_at: number
   closed_at: number | null
+  attachment_count?: number
 }
 
 const serializeTask = (t: TaskRow) => ({
+  attachmentCount: t.attachment_count ?? (db.prepare('SELECT COUNT(*) AS n FROM attachments WHERE task_id = ?').get(t.id) as { n: number }).n,
   id: t.id,
   categoryId: t.category_id,
   title: t.title,
@@ -37,9 +40,9 @@ const serializeTask = (t: TaskRow) => ({
   closedAt: t.closed_at,
 })
 
-const getTask = (id: number) => db.prepare('SELECT * FROM tasks WHERE id = ?').get(id) as TaskRow | undefined
+export const getTask = (id: number) => db.prepare('SELECT * FROM tasks WHERE id = ?').get(id) as TaskRow | undefined
 
-function requireTask(req: Request) {
+export function requireTask(req: Request) {
   const task = getTask(idParam(req))
   if (!task) throw notFound('Task not found')
   return task
@@ -57,8 +60,9 @@ function assertAssignable(userId: number) {
   if (row.status === 'disabled') throw badRequest('This user is disabled')
 }
 
-const canEdit = (req: Request, task: TaskRow) => can(req, 'edit_tasks') || task.creator_id === me(req).id
-const canChangeStatus = (req: Request, task: TaskRow) => canEdit(req, task) || task.assignee_id === me(req).id
+export const canEdit = (req: Request, task: TaskRow) => can(req, 'edit_tasks') || task.creator_id === me(req).id
+/** People working on a task: they may move it and attach files. */
+export const canWork = (req: Request, task: TaskRow) => canEdit(req, task) || task.assignee_id === me(req).id
 
 /** Writes changed columns, keeps closed_at in sync with status and records one audit entry. */
 function applyChanges(actorId: number, task: TaskRow, next: Partial<TaskRow>, action = 'task.updated', extra: Record<string, unknown> = {}) {
@@ -113,7 +117,8 @@ tasksRouter.get('/tasks', (req, res) => {
   }
 
   const rows = db.prepare(`
-    SELECT * FROM tasks
+    SELECT tasks.*, (SELECT COUNT(*) FROM attachments a WHERE a.task_id = tasks.id) AS attachment_count
+    FROM tasks
     ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
     ORDER BY
       CASE status WHEN 'in_progress' THEN 0 WHEN 'review' THEN 1 WHEN 'open' THEN 2 ELSE 3 END,
@@ -127,7 +132,7 @@ tasksRouter.get('/tasks', (req, res) => {
 tasksRouter.get('/tasks/:id', (req, res) => {
   const task = requireTask(req)
   const history = db.prepare(`SELECT * FROM audit_log WHERE entity_type = 'task' AND entity_id = ? ORDER BY id DESC`).all(task.id) as AuditRow[]
-  res.json({ task: serializeTask(task), history: history.map(serializeAudit) })
+  res.json({ task: serializeTask(task), history: history.map(serializeAudit), attachments: listAttachments(task.id) })
 })
 
 tasksRouter.post('/tasks', requirePermission('create_tasks'), (req, res) => {
@@ -167,7 +172,7 @@ tasksRouter.patch('/tasks/:id', (req, res) => {
 
   const editsContent = ['title', 'description', 'priority', 'categoryId'].some((k) => body[k] !== undefined)
   if (editsContent && !canEdit(req, task)) throw forbidden('Only the author or someone with "Edit any task" can edit this task')
-  if (body.status !== undefined && !canChangeStatus(req, task)) throw forbidden('Only the assignee, the author or an editor can change the status')
+  if (body.status !== undefined && !canWork(req, task)) throw forbidden('Only the assignee, the author or an editor can change the status')
 
   if (body.title !== undefined) next.title = text(body.title, 'Title', { min: 1, max: 200 })
   if (body.description !== undefined) next.description = text(body.description, 'Description', { max: 20000 })
@@ -214,9 +219,11 @@ tasksRouter.post('/tasks/:id/assign', (req, res) => {
 tasksRouter.delete('/tasks/:id', requirePermission('delete_tasks'), (req, res) => {
   const actor = me(req)
   const task = requireTask(req)
+  const files = (db.prepare('SELECT file FROM attachments WHERE task_id = ?').all(task.id) as { file: string }[]).map((r) => r.file)
   transaction(() => {
     db.prepare('DELETE FROM tasks WHERE id = ?').run(task.id)
     audit(actor.id, 'task', task.id, 'task.deleted', { title: task.title, categoryId: task.category_id })
   })
+  removeFiles(files)
   res.json({ ok: true })
 })

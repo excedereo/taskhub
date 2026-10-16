@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ScrollText } from 'lucide-react'
+import { ScrollText, Users as UsersIcon } from 'lucide-react'
+import { Select } from '../components/Select.tsx'
 import { api } from '../api.ts'
 import { useData, useSession } from '../store.tsx'
 import type { AuditEvent } from '../types.ts'
@@ -77,14 +78,16 @@ export function AuditPage() {
           ))}
         </div>
         <div className="toolbar-right">
-          <select className="input input-sm" value={actorId} onChange={(e) => setActorId(e.target.value)} aria-label="Filter by person">
-            <option value="">Anyone</option>
-            {users.map((u) => (
-              <option key={u.id} value={u.id}>
-                {displayName(u)}
-              </option>
-            ))}
-          </select>
+          <Select
+            variant="sm"
+            aria-label="Filter by person"
+            value={actorId}
+            onChange={setActorId}
+            options={[
+              { value: '', label: 'Anyone', icon: <UsersIcon size={14} className="muted" /> },
+              ...users.map((u) => ({ value: String(u.id), label: displayName(u), icon: <Avatar user={u} size={18} /> })),
+            ]}
+          />
         </div>
       </div>
 

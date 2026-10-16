@@ -4,6 +4,7 @@ import { api } from '../api.ts'
 import { useData } from '../store.tsx'
 import type { Category } from '../types.ts'
 import { ConfirmButton, Field, Modal } from './ui.tsx'
+import { AutoTextarea } from './AutoTextarea.tsx'
 import { useToast } from './Toast.tsx'
 
 export function CategoryModal({ category, onClose }: { category?: Category; onClose: () => void }) {
@@ -75,7 +76,7 @@ export function CategoryModal({ category, onClose }: { category?: Category; onCl
           <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Bug reports" maxLength={48} autoFocus />
         </Field>
         <Field label="Description" hint="Optional. Shown at the top of the category.">
-          <textarea className="input" rows={3} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={500} placeholder="What belongs here and how to file it" />
+          <AutoTextarea className="input" minRows={3} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={500} placeholder="What belongs here and how to file it" />
         </Field>
       </form>
     </Modal>

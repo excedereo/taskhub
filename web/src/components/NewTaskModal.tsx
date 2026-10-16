@@ -1,10 +1,17 @@
-import { useState, type FormEvent } from 'react'
-import { api } from '../api.ts'
+import { useEffect, useState, type DragEvent, type FormEvent } from 'react'
+import { Hash } from 'lucide-react'
+import { api, imageFiles, uploadImage } from '../api.ts'
 import { useData, useMe } from '../store.tsx'
 import { PRIORITIES, type Priority, type Task } from '../types.ts'
-import { displayName } from '../util.ts'
-import { Field, Modal } from './ui.tsx'
+import { cx, displayName } from '../util.ts'
+import { Avatar, Field, Modal, PriorityIcon } from './ui.tsx'
+import { Select } from './Select.tsx'
+import { AutoTextarea } from './AutoTextarea.tsx'
+import { Gallery, type GalleryItem } from './Gallery.tsx'
 import { useToast } from './Toast.tsx'
+
+type Draft = { key: string; file: File; url: string; width: number | null; height: number | null }
+let draftSeq = 0
 
 export function NewTaskModal({ defaultCategoryId, onClose, onCreated }: { defaultCategoryId?: number; onClose: () => void; onCreated: (task: Task) => void }) {
   const me = useMe()
@@ -17,19 +24,59 @@ export function NewTaskModal({ defaultCategoryId, onClose, onCreated }: { defaul
   const [description, setDescription] = useState('')
   const [priority, setPriority] = useState<Priority>('medium')
   const [assigneeId, setAssigneeId] = useState<number | null>(null)
+  const [images, setImages] = useState<Draft[]>([])
+  const [dragging, setDragging] = useState(false)
   const [busy, setBusy] = useState(false)
 
   const canAssign = can('assign_tasks')
   const canTake = can('take_tasks')
   const assignable = canAssign ? users.filter((u) => u.status !== 'disabled') : users.filter((u) => u.id === me.id)
 
+  // Images are kept locally until the task exists, then uploaded one by one.
+  const addImages = (files: File[]) => {
+    for (const file of files) {
+      const key = `d${++draftSeq}`
+      const url = URL.createObjectURL(file)
+      setImages((list) => [...list, { key, file, url, width: null, height: null }])
+      const img = new Image()
+      img.onload = () => setImages((list) => list.map((d) => (d.key === key ? { ...d, width: img.naturalWidth, height: img.naturalHeight } : d)))
+      img.src = url
+    }
+  }
+
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      const files = imageFiles(e.clipboardData?.items)
+      if (!files.length) return
+      e.preventDefault()
+      addImages(files)
+    }
+    window.addEventListener('paste', onPaste)
+    return () => window.removeEventListener('paste', onPaste)
+  }, [])
+
+  // Free the preview URLs when the modal goes away.
+  const [urls] = useState(() => new Set<string>())
+  images.forEach((d) => urls.add(d.url))
+  useEffect(() => () => urls.forEach((u) => URL.revokeObjectURL(u)), [urls])
+
   const submit = async (e: FormEvent) => {
     e.preventDefault()
     setBusy(true)
     try {
       const task = await api.post<Task>('/tasks', { categoryId, title, description, priority, assigneeId })
+      // One at a time, so the images keep the order they were added in.
+      let uploaded = 0
+      for (const d of images) {
+        try {
+          await uploadImage(task.id, d.file)
+          uploaded++
+        } catch (err) {
+          toast.error(err)
+        }
+      }
       reloadCategories()
-      onCreated(task)
+      onCreated({ ...task, attachmentCount: uploaded })
       onClose()
     } catch (err) {
       toast.error(err)
@@ -38,10 +85,14 @@ export function NewTaskModal({ defaultCategoryId, onClose, onCreated }: { defaul
     }
   }
 
+  const hasFiles = (e: DragEvent) => Array.from(e.dataTransfer.types).includes('Files')
+
+  const gallery: GalleryItem[] = images.map((d) => ({ key: d.key, src: d.url, name: d.file.name, width: d.width, height: d.height, size: d.file.size, removable: true }))
+
   return (
     <Modal
       title="New task"
-      width={560}
+      width={600}
       onClose={onClose}
       footer={
         <>
@@ -49,49 +100,69 @@ export function NewTaskModal({ defaultCategoryId, onClose, onCreated }: { defaul
             Cancel
           </button>
           <button type="submit" form="task-form" className="btn btn-primary" disabled={busy || !title.trim() || !categoryId}>
-            Create task
+            {busy && images.length ? 'Uploading…' : 'Create task'}
           </button>
         </>
       }
     >
-      <form id="task-form" className="form" onSubmit={submit}>
+      <form
+        id="task-form"
+        className={cx('form', dragging && 'form-dragging')}
+        onSubmit={submit}
+        onDragOver={(e) => {
+          if (!hasFiles(e)) return
+          e.preventDefault()
+          setDragging(true)
+        }}
+        onDragLeave={(e) => !e.currentTarget.contains(e.relatedTarget as Node | null) && setDragging(false)}
+        onDrop={(e) => {
+          if (!hasFiles(e)) return
+          e.preventDefault()
+          setDragging(false)
+          addImages(imageFiles(e.dataTransfer.files))
+        }}
+      >
         <Field label="Title">
           <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Short summary" maxLength={200} autoFocus />
         </Field>
         <Field label="Description">
-          <textarea className="input" rows={6} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Steps to reproduce, context, links…" />
+          <AutoTextarea className="input" minRows={5} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Steps to reproduce, context, links…" />
         </Field>
         <div className="form-row">
           <Field label="Category">
-            <select className="input" value={categoryId} onChange={(e) => setCategoryId(Number(e.target.value))}>
-              {active.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+            <Select
+              aria-label="Category"
+              value={categoryId}
+              onChange={setCategoryId}
+              options={active.map((c) => ({ value: c.id, label: c.name, icon: <Hash size={14} className="muted" /> }))}
+            />
           </Field>
           <Field label="Priority">
-            <select className="input" value={priority} onChange={(e) => setPriority(e.target.value as Priority)}>
-              {PRIORITIES.map((p) => (
-                <option key={p.key} value={p.key}>
-                  {p.label}
-                </option>
-              ))}
-            </select>
+            <Select
+              aria-label="Priority"
+              value={priority}
+              onChange={setPriority}
+              options={PRIORITIES.map((p) => ({ value: p.key, label: p.label, icon: <PriorityIcon priority={p.key} /> }))}
+            />
           </Field>
           {(canAssign || canTake) && (
             <Field label="Assignee">
-              <select className="input" value={assigneeId ?? ''} onChange={(e) => setAssigneeId(e.target.value ? Number(e.target.value) : null)}>
-                <option value="">Unassigned</option>
-                {assignable.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.id === me.id ? `${displayName(u)} (me)` : displayName(u)}
-                  </option>
-                ))}
-              </select>
+              <Select
+                aria-label="Assignee"
+                value={assigneeId}
+                onChange={setAssigneeId}
+                options={[
+                  { value: null, label: 'Unassigned', icon: <span className="avatar avatar-empty" style={{ width: 18, height: 18 }} /> },
+                  ...assignable.map((u) => ({ value: u.id, label: u.id === me.id ? `${displayName(u)} (me)` : displayName(u), icon: <Avatar user={u} size={18} /> })),
+                ]}
+              />
             </Field>
           )}
+        </div>
+        <div className="field">
+          <span className="field-label">Images</span>
+          <Gallery items={gallery} rowHeight={96} onAdd={addImages} onRemove={(item) => setImages((list) => list.filter((d) => d.key !== item.key))} />
+          <span className="field-hint">Paste a screenshot with Ctrl+V or drop images here.</span>
         </div>
       </form>
     </Modal>

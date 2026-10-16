@@ -4,7 +4,8 @@ import { api } from '../api.ts'
 import { useData, useMe } from '../store.tsx'
 import type { User } from '../types.ts'
 import { covers, cx, displayName, formatDate, timeAgo } from '../util.ts'
-import { Avatar, ConfirmButton, Field, Modal, PageHeader, RoleBadge } from '../components/ui.tsx'
+import { Avatar, ConfirmButton, Field, Modal, PageHeader, RoleBadge, roleOptions } from '../components/ui.tsx'
+import { Select } from '../components/Select.tsx'
 import { useToast } from '../components/Toast.tsx'
 
 const STATUS_LABEL: Record<User['status'], string> = { active: 'Active', invited: 'Invited', disabled: 'Disabled' }
@@ -64,13 +65,7 @@ export function UsersPage() {
             </span>
             <span>
               {manageable(u) ? (
-                <select className="input input-sm" value={u.roleId} onChange={(e) => run(() => api.patch(`/users/${u.id}`, { roleId: Number(e.target.value) }))} aria-label="Role">
-                  {grantable.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.name}
-                    </option>
-                  ))}
-                </select>
+                <Select variant="sm" aria-label="Role" value={u.roleId} onChange={(roleId) => run(() => api.patch(`/users/${u.id}`, { roleId }))} options={roleOptions(grantable)} />
               ) : (
                 <RoleBadge role={roleById.get(u.roleId)} />
               )}
@@ -150,13 +145,7 @@ function AddUserModal({ onClose, onAdded }: { onClose: () => void; onAdded: () =
           <input className="input mono" value={discordId} onChange={(e) => setDiscordId(e.target.value)} placeholder="123456789012345678" inputMode="numeric" autoFocus />
         </Field>
         <Field label="Role">
-          <select className="input" value={roleId} onChange={(e) => setRoleId(Number(e.target.value))}>
-            {grantable.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.name}
-              </option>
-            ))}
-          </select>
+          <Select aria-label="Role" value={roleId} onChange={setRoleId} options={roleOptions(grantable)} />
         </Field>
       </form>
     </Modal>
