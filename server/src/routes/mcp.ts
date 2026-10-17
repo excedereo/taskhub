@@ -252,7 +252,7 @@ const TOOLS: Tool[] = [
   },
   {
     name: 'take_task',
-    description: 'Assign a task to yourself. A task that has not started yet moves to the first "in progress" status.',
+    description: 'Assign a task to yourself. Its status does not change; move it on with update_task when you start working.',
     write: true,
     inputSchema: { type: 'object', properties: { id: idArg }, required: ['id'] },
     run: async (req, a) => {

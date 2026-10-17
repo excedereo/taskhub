@@ -20,7 +20,7 @@ const SELECT = `SELECT s.*, (SELECT COUNT(*) FROM tasks t WHERE t.status_id = s.
 const getStatus = (id: number) => db.prepare(`${SELECT} WHERE s.id = ?`).get(id) as StatusRow | undefined
 const list = () => (db.prepare(`${SELECT} ORDER BY s.position, s.id`).all() as StatusRow[]).map(serializeStatus)
 
-/** The first status of a type in the workspace order, e.g. where Take moves a task. */
+/** The first status of a type in the workspace order, e.g. where new tasks start. */
 export function firstOfType(type: StatusType): number {
   return (db.prepare('SELECT id FROM statuses WHERE type = ? ORDER BY position, id LIMIT 1').get(type) as { id: number }).id
 }

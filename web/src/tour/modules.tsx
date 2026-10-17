@@ -284,10 +284,7 @@ export const TOUR_MODULES: TourModule[] = [
         target: '.take-btn',
         demo: 'take',
         title: 'Take',
-        body: (c) => {
-          const firstActive = c.statuses.find((s) => s.type === 'active')
-          return `Tasks nobody is working on have a Take button. It assigns the task to you and, if it has not started yet, moves it to ${firstActive?.name ?? 'the first in-progress status'}. From then on it is in My tasks.`
-        },
+        body: 'Tasks nobody is working on have a Take button. It assigns the task to you, and from then on it is in My tasks. The status stays as it was: move it on yourself when you actually start.',
       },
     ],
   },
@@ -467,7 +464,7 @@ export const TOUR_MODULES: TourModule[] = [
         target: 'statuses',
         when: (c) => c.can('manage_settings'),
         title: 'Statuses',
-        body: 'The steps a task goes through, in order. Each has a type: Not started, In progress or Done. The type decides what Take does and when a task counts as finished. Colors and icons are chosen by each person.',
+        body: 'The steps a task goes through, in order. Each has a type: Not started, In progress or Done. The type decides when a task counts as finished, and what happens when it is taken off its assignee. Colors and icons are chosen by each person.',
       },
       {
         target: 'priorities',

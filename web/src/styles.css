@@ -1380,3 +1380,11 @@ body.dragging * { cursor: grabbing !important; user-select: none; }
 .task-row-demo { cursor: default; pointer-events: none; }
 .tour-demo-list { margin-bottom: 14px; }
 .demo-chips { display: inline-flex; align-items: center; gap: 10px; }
+
+/* Foldable cards */
+.fold-toggle { display: flex; flex: 1; align-items: flex-start; gap: 8px; min-width: 0; padding: 0; border: none; background: none; color: var(--text); text-align: left; font: inherit; }
+.fold-chevron { flex-shrink: 0; margin-top: 3px; color: var(--text-muted); transition: transform 0.15s; }
+.foldable.is-open .fold-chevron { transform: rotate(90deg); }
+.fold-toggle:hover .fold-chevron { color: var(--text); }
+.archived-categories { margin-bottom: 4px; }
+.archived-tasks-title { margin-top: 24px; }

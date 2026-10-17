@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { X } from 'lucide-react'
+import { X, ChevronRight } from 'lucide-react'
 import type { Label, Me, Role, User } from '../types.ts'
 import { ICONS } from '../icons.ts'
 import { useLooks } from '../prefs.ts'
@@ -89,6 +89,43 @@ export function PriorityIcon({ id }: { id: number }) {
       </svg>
       <Icon className="pi-icon" size={14} strokeWidth={2.25} />
     </span>
+  )
+}
+
+const FOLD_KEY = 'taskhub.fold.'
+
+/** A card whose body opens and closes from its header. Folded by default; the choice is remembered in this browser. */
+export function Foldable({ id, title, hint, actions, className, tour, children }: { id: string; title: ReactNode; hint?: ReactNode; actions?: ReactNode; className?: string; tour?: string; children: ReactNode }) {
+  const [open, setOpen] = useState(() => {
+    try {
+      return localStorage.getItem(FOLD_KEY + id) === 'open'
+    } catch {
+      return false
+    }
+  })
+  const toggle = () =>
+    setOpen((o) => {
+      try {
+        localStorage.setItem(FOLD_KEY + id, o ? 'closed' : 'open')
+      } catch {
+        // storage unavailable: it just won't be remembered
+      }
+      return !o
+    })
+  return (
+    <section className={`${className ?? 'card'} foldable${open ? ' is-open' : ''}`} data-tour={tour}>
+      <div className="row gap-xs">
+        <button type="button" className="fold-toggle" onClick={toggle} aria-expanded={open}>
+          <ChevronRight size={14} className="fold-chevron" />
+          <span className="stack min-w-0">
+            <span>{title}</span>
+            {hint && <span className="muted small">{hint}</span>}
+          </span>
+        </button>
+        {actions}
+      </div>
+      {open && children}
+    </section>
   )
 }
 

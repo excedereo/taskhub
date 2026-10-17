@@ -1,6 +1,6 @@
 import { useData } from '../store.tsx'
 import type { ReactNode } from 'react'
-import { PageHeader, PriorityIcon, StatusIcon } from '../components/ui.tsx'
+import { Foldable, PageHeader, PriorityIcon, StatusIcon } from '../components/ui.tsx'
 import { readPrefs, savePrefs, usePrefs, useLooks, type Look, type Prefs } from '../prefs.ts'
 import { ThemePicker } from '../components/ThemePicker.tsx'
 import { Guides } from '../tour/Guides.tsx'
@@ -98,12 +98,13 @@ function LooksCard() {
   const anyChanged = Object.keys(prefs.statusLooks).length + Object.keys(prefs.priorityLooks).length > 0
 
   return (
-    <section className="card looks-card" data-tour="looks">
-      <div className="row gap-xs">
-        <span className="stack min-w-0 grow">
-          <span>Colors and icons</span>
-          <span className="muted small">Only for you. Anything you leave alone uses the workspace default.</span>
-        </span>
+    <Foldable
+      id="looks"
+      className="card looks-card"
+      tour="looks"
+      title="Colors and icons"
+      hint="Only for you. Anything you leave alone uses the workspace default."
+      actions={
         <button
           type="button"
           className="btn btn-sm"
@@ -113,7 +114,8 @@ function LooksCard() {
         >
           Reset all
         </button>
-      </div>
+      }
+    >
       <LookGroup title="Statuses">
         {statuses.map((s) => (
           <LookRow
@@ -146,7 +148,7 @@ function LooksCard() {
           />
         ))}
       </LookGroup>
-    </section>
+    </Foldable>
   )
 }
 

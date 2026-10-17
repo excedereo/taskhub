@@ -76,7 +76,7 @@ export function StatusesEditor() {
   }
 
   return (
-    <EditorCard title="Statuses" hint="The steps a task goes through. The type decides what a status means: Take moves to the first “In progress”, “Done” closes the task and moves it to Finished. Colors and icons are set by each person in their own Settings.">
+    <EditorCard title="Statuses" hint="The steps a task goes through. The type decides what a status means: “Done” closes the task and moves it to Finished, and a task taken off its assignee while “In progress” goes back to the first “Not started”. Colors and icons are set by each person in their own Settings.">
       <ul className="workflow-list">
         {order.map((s, i) => (
           <li key={s.id} ref={sort.ref(i)} style={sort.style(i)} className={cx(sort.dragging === i && 'is-dragging')}>

@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Archive, ArchiveRestore, Hash, Layers, Search } from 'lucide-react'
 import { api } from '../api.ts'
 import { useData, useMe } from '../store.tsx'
-import type { Task } from '../types.ts'
+import type { Category, Task } from '../types.ts'
 import { formatDate, timeAgo } from '../util.ts'
 import { Empty, PageHeader, StatusIcon } from '../components/ui.tsx'
 import { Select } from '../components/Select.tsx'
@@ -19,6 +19,9 @@ export function ArchivedPage() {
   const [query, setQuery] = useState('')
   const categoryId = params.get('category') ?? ''
   const openTaskId = params.get('task') ? Number(params.get('task')) : null
+  const navigate = useNavigate()
+  // Archived categories leave the sidebar, so this is where they can be found and brought back.
+  const archivedCategories = categories.filter((c) => c.archived)
 
   const setParam = useCallback(
     (key: string, value: string | null) =>
@@ -58,6 +61,16 @@ export function ArchivedPage() {
     }
   }
 
+  const restoreCategory = async (category: Category) => {
+    try {
+      await api.patch(`/categories/${category.id}`, { archived: false })
+      await reloadCategories()
+      toast.info(`${category.name} is back in the sidebar`)
+    } catch (err) {
+      toast.error(err)
+    }
+  }
+
   const ids = new Set((tasks ?? []).map((t) => t.id))
   // Subtasks archived together with their parent are listed under it, not on their own.
   const top = (tasks ?? []).filter((t) => !t.parentId || !ids.has(t.parentId))
@@ -66,7 +79,30 @@ export function ArchivedPage() {
 
   return (
     <div className="page">
-      <PageHeader title="Archived" description="Tasks taken out of lists and analytics. Nothing is lost: history, images and subtasks stay with them." />
+      <PageHeader title="Archived" description="Tasks and categories taken out of lists and analytics. Nothing is lost: history, images and subtasks stay with them." />
+
+      {archivedCategories.length > 0 && (
+        <section className="archived-categories">
+          <h2 className="section-title">Categories</h2>
+          <ul className="task-list">
+            {archivedCategories.map((c) => (
+              <li key={c.id}>
+                <div role="button" tabIndex={0} className="task-row" onClick={() => navigate(`/tasks/c/${c.id}`)} onKeyDown={(e) => e.key === 'Enter' && navigate(`/tasks/c/${c.id}`)}>
+                  <Hash size={14} className="muted" />
+                  <span className="task-title truncate">{c.name}</span>
+                  <span className="muted small">{c.totalCount} task(s)</span>
+                  {can('manage_categories') && (
+                    <button className="btn btn-sm" onClick={(e) => (e.stopPropagation(), restoreCategory(c))}>
+                      <ArchiveRestore size={14} /> Restore
+                    </button>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+          <h2 className="section-title archived-tasks-title">Tasks</h2>
+        </section>
+      )}
 
       <div className="toolbar">
         <label className="search">

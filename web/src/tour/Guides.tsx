@@ -1,5 +1,6 @@
 import { Check, Play } from 'lucide-react'
 import { useToast } from '../components/Toast.tsx'
+import { Foldable } from '../components/ui.tsx'
 import { useTour } from './Tour.tsx'
 import type { TourModule } from './modules.tsx'
 
@@ -37,16 +38,18 @@ export function Guides() {
   )
 
   return (
-    <section className="card form guides-card" data-tour="guides">
-      <div className="row gap-xs">
-        <span className="stack min-w-0 grow">
-          <span>Guides</span>
-          <span className="muted small">Short walkthroughs of each part of Taskhub. Only the ones your role can use are listed.</span>
-        </span>
+    <Foldable
+      id="guides"
+      className="card form guides-card"
+      tour="guides"
+      title="Guides"
+      hint="Short walkthroughs of each part of Taskhub. Only the ones your role can use are listed."
+      actions={
         <button type="button" className="btn btn-sm" onClick={() => run()}>
           Take the full tour
         </button>
-      </div>
+      }
+    >
       {list(everyday)}
       {admin.length > 0 && (
         <>
@@ -59,6 +62,6 @@ export function Guides() {
           {list(admin)}
         </>
       )}
-    </section>
+    </Foldable>
   )
 }

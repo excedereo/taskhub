@@ -315,9 +315,8 @@ tasksRouter.post('/tasks/:id/take', (req, res) => {
   if (task.assignee_id !== null && !can(req, 'assign_tasks')) throw badRequest('Someone is already working on this task')
   if (task.status_type === 'done') throw badRequest('This task is already done')
 
-  const next: Editable = { assignee_id: actor.id }
-  if (task.status_type === 'todo') next.status_id = firstOfType('active')
-  res.json(serializeTask(applyChanges(actor.id, task, next, 'task.taken')))
+  // Taking only says "this is mine now": the person moves the status on when they actually start.
+  res.json(serializeTask(applyChanges(actor.id, task, { assignee_id: actor.id }, 'task.taken')))
 })
 
 tasksRouter.post('/tasks/:id/assign', (req, res) => {
