@@ -182,15 +182,14 @@ export const TOUR_MODULES: TourModule[] = [
         body: 'Search by words in the title or description, or by number, like #42. Narrow the list down to one person, to unassigned tasks, or to one label.',
       },
       {
-        target: '.task-row',
+        target: 'demo-row',
+        demo: 'row',
         title: 'A task row',
-        body: (c) =>
-          c.hasTasks
-            ? 'Each row is one task; click it to open the task. Let’s go through a row from left to right.'
-            : 'Tasks show up here as rows. There are no tasks you can see yet, so this part of the tour has little to point at.',
+        body: 'Each row is one task; click it to open the task. Here is an example with every part filled in, so we can go through it from left to right.',
       },
       {
-        target: '.task-row .priority-icon',
+        target: '[data-tour="demo-row"] .priority-icon',
+        demo: 'row',
         title: 'Priorities',
         body: (c) => {
           const def = c.priorities.find((p) => p.isDefault)
@@ -210,17 +209,20 @@ export const TOUR_MODULES: TourModule[] = [
         },
       },
       {
-        target: '.task-row .task-id',
+        target: '[data-tour="demo-row"] .task-id',
+        demo: 'row',
         title: 'Task number',
         body: 'Every task has its own number, and it never changes. Search for it with #12, or use it to point at a task in a chat.',
       },
       {
-        target: '.task-row .status-icon',
+        target: '[data-tour="demo-row"] .status-icon',
+        demo: 'row',
         title: 'Status',
         body: 'The icon shows the task’s status. You can choose how statuses are drawn, as rings, dots or icons, in Settings.',
       },
       {
         target: 'status-filter',
+        demo: 'row',
         title: 'Statuses',
         body: (c) => (
           <>
@@ -240,32 +242,34 @@ export const TOUR_MODULES: TourModule[] = [
         ),
       },
       {
-        target: '.task-row .task-chip',
-        optional: true,
+        target: '[data-tour="demo-row"] .task-chip',
+        demo: 'row',
         title: 'Subtasks and images',
-        body: 'How many of the task’s subtasks are done, and how many images are attached to it.',
+        body: 'How many of the task’s subtasks are done (here 1 of 3), and how many images are attached to it.',
       },
       {
-        target: '.task-row .label-chip',
-        optional: true,
+        target: '[data-tour="demo-row"] .task-labels',
+        demo: 'row',
         title: 'Labels',
         body: 'Tags on the task, like “backend” or “blocked”. A row shows up to three; the rest are in the task itself.',
       },
       {
-        target: '.task-row .due',
-        optional: true,
+        target: '[data-tour="demo-row"] .due',
+        demo: 'row',
         title: 'Due date',
         body: 'When the task should be done. It turns orange when the day is close and red once it has passed.',
       },
       {
-        target: '.task-row .task-time',
+        target: '[data-tour="demo-row"] .task-time',
+        demo: 'row',
         title: 'Last change',
         body: 'When anything about the task last changed. Point at it to see the exact date and time.',
       },
       {
-        target: '.task-row .task-assignee',
+        target: '[data-tour="demo-row"] .task-assignee',
+        demo: 'row',
         title: 'Assignee',
-        body: 'Who is working on the task. An empty circle means nobody is on it yet.',
+        body: 'Who is working on the task. An empty circle means nobody is on it yet. This example shows you, since it is not a real task.',
       },
     ],
   },

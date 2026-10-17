@@ -263,6 +263,13 @@ export function TasksPage() {
             </div>
           </div>
 
+          {demo === 'row' && (
+            <ul className="task-list tour-demo-list" data-tour="demo-row">
+              <li>
+                <DemoTaskRow kind="row" />
+              </li>
+            </ul>
+          )}
           {demoTake && (
             <ul className="task-list tour-demo-list">
               <li>
