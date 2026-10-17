@@ -4,6 +4,7 @@ export const PERMISSIONS = [
   { key: 'manage_users', label: 'Manage users', description: 'Add users by Discord ID, change their roles, disable accounts.' },
   { key: 'manage_roles', label: 'Manage roles', description: 'Create and edit roles. Can only grant permissions they have themselves.' },
   { key: 'manage_categories', label: 'Manage categories and labels', description: 'Create, rename, archive and delete categories, and manage labels.' },
+  { key: 'delete_categories', label: 'Delete categories with tasks', description: 'Delete a whole category together with all of its tasks, images and history. Also needs Manage categories.' },
   { key: 'create_tasks', label: 'Create tasks', description: 'Open new tasks. Can be limited to certain categories.' },
   { key: 'edit_tasks', label: 'Edit any task', description: 'Edit and move tasks created by others. Authors can always edit their own.' },
   { key: 'delete_tasks', label: 'Delete any task', description: 'Permanently delete any task. The deletion stays in the audit log.' },

@@ -125,7 +125,7 @@ export function describeEvent(e: AuditEvent, ctx: EventContext, inTask = false):
     case 'category.created':
       return <>created the category {name}</>
     case 'category.deleted':
-      return <>deleted the category {name}</>
+      return <>deleted the category {name}{Number(d.tasks) > 0 && ` with ${d.tasks} task(s)`}</>
     case 'category.updated': {
       const parts: ReactNode[] = []
       if (changes.name) parts.push(<>renamed the category <B>{String(changes.name[0])}</B> to {name}</>)

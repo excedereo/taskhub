@@ -206,7 +206,7 @@ export function buildEmbed(e: AuditEntry): Embed | null {
 
   const simple: Record<string, string> = {
     'category.created': `created the category ${name}`,
-    'category.deleted': `deleted the category ${name}`,
+    'category.deleted': `deleted the category ${name}${Number(d.tasks) > 0 ? ` with ${Number(d.tasks)} task(s)` : ''}`,
     'category.updated': changes.archived ? (changes.archived[1] ? `archived the category ${name}` : `restored the category ${name}`) : `edited the category ${name}`,
     'category.arranged': `rearranged sections in ${name}`,
     'category.archived_done': `archived ${Number(d.count)} finished task(s) in ${name}`,

@@ -3,6 +3,7 @@ import { db, transaction } from '../db.ts'
 import { audit, diff } from '../audit.ts'
 import { badRequest, can, canSeeCategory, forbidden, idParam, me, notFound, requirePermission, text } from '../http.ts'
 import type { Request } from 'express'
+import { removeFiles } from './attachments.ts'
 
 export const categoriesRouter = Router()
 
@@ -208,11 +209,21 @@ categoriesRouter.post('/categories/:id/archive-done', (req, res) => {
 categoriesRouter.delete('/categories/:id', requirePermission('manage_categories'), (req, res) => {
   const actor = me(req)
   const category = requireCategory(req)
-  if (category.total_count > 0) throw badRequest('Only empty categories can be deleted. Archive it instead.')
+  const withTasks = category.total_count > 0
+  if (withTasks) {
+    if (!can(req, 'delete_categories')) throw forbidden('Only empty categories can be deleted. Archive it instead, or ask someone who can delete categories with tasks.')
+    // The name has to be typed in, so a whole category is never deleted by a stray click.
+    if (req.query.confirm !== category.name) throw badRequest('Type the category name to confirm')
+  }
 
+  const files = (db.prepare('SELECT a.file FROM attachments a JOIN tasks t ON t.id = a.task_id WHERE t.category_id = ?').all(category.id) as { file: string }[]).map((r) => r.file)
   transaction(() => {
+    // Subtasks always live in their parent's category; attachments, labels and sections go along by cascade.
+    db.prepare('DELETE FROM tasks WHERE category_id = ? AND parent_id IS NOT NULL').run(category.id)
+    db.prepare('DELETE FROM tasks WHERE category_id = ?').run(category.id)
     db.prepare('DELETE FROM categories WHERE id = ?').run(category.id)
-    audit(actor.id, 'category', category.id, 'category.deleted', { name: category.name })
+    audit(actor.id, 'category', category.id, 'category.deleted', { name: category.name, tasks: category.total_count, images: files.length })
   })
+  removeFiles(files)
   res.json({ ok: true })
 })

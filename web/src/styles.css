@@ -1388,3 +1388,8 @@ body.dragging * { cursor: grabbing !important; user-select: none; }
 .fold-toggle:hover .fold-chevron { color: var(--text); }
 .archived-categories { margin-bottom: 4px; }
 .archived-tasks-title { margin-top: 24px; }
+.btn-danger-text { color: var(--danger); }
+.danger-zone { display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; padding: 14px; border: 1px solid color-mix(in srgb, var(--danger) 40%, transparent); border-radius: var(--radius); background: var(--danger-bg); font-size: 13px; }
+.danger-zone p { margin: 0; }
+.danger-zone .btn-danger { background: var(--danger); color: #fff; }
+.danger-zone .btn-danger:disabled { opacity: 0.45; }

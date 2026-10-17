@@ -14,6 +14,9 @@ export function CategoryModal({ category, onClose, onArchivedDone }: { category?
   const [name, setName] = useState(category?.name ?? '')
   const [description, setDescription] = useState(category?.description ?? '')
   const [busy, setBusy] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [confirmName, setConfirmName] = useState('')
+  const canDeleteFull = can('manage_categories') && can('delete_categories')
 
   async function run(action: () => Promise<unknown>) {
     setBusy(true)
@@ -65,9 +68,16 @@ export function CategoryModal({ category, onClose, onArchivedDone }: { category?
                   Delete
                 </ConfirmButton>
               ) : (
-                <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => run(() => api.patch(`/categories/${category.id}`, { archived: !category.archived }))}>
-                  {category.archived ? 'Unarchive category' : 'Archive category'}
-                </button>
+                <>
+                  <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => run(() => api.patch(`/categories/${category.id}`, { archived: !category.archived }))}>
+                    {category.archived ? 'Unarchive category' : 'Archive category'}
+                  </button>
+                  {canDeleteFull && !deleting && (
+                    <button type="button" className="btn btn-ghost btn-danger-text" disabled={busy} onClick={() => setDeleting(true)}>
+                      Delete…
+                    </button>
+                  )}
+                </>
               )}
             </div>
           )}
@@ -80,6 +90,34 @@ export function CategoryModal({ category, onClose, onArchivedDone }: { category?
         </>
       }
     >
+      {deleting && category && (
+        <div className="danger-zone">
+          <p>
+            This permanently deletes <b>{category.totalCount} task(s)</b> in this category, including subtasks and archived ones, together with their images and
+            history. It cannot be undone; the audit log keeps one entry about it.
+          </p>
+          <Field label={`Type “${category.name}” to confirm`}>
+            <input className="input" autoFocus value={confirmName} onChange={(e) => setConfirmName(e.target.value)} aria-label="Category name" />
+          </Field>
+          <div className="row gap-xs">
+            <button type="button" className="btn btn-ghost" onClick={() => (setDeleting(false), setConfirmName(''))}>
+              Keep it
+            </button>
+            <button
+              type="button"
+              className="btn btn-danger"
+              disabled={busy || confirmName !== category.name}
+              onClick={() => run(async () => {
+                await api.del(`/categories/${category.id}?confirm=${encodeURIComponent(confirmName)}`)
+                toast.info(`Deleted ${category.name}`)
+                navigate('/tasks')
+              })}
+            >
+              Delete category and tasks
+            </button>
+          </div>
+        </div>
+      )}
       <form id="category-form" className="form" onSubmit={submit}>
         <Field label="Name">
           <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Bug reports" maxLength={48} autoFocus />
