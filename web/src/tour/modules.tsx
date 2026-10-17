@@ -172,11 +172,24 @@ export const TOUR_MODULES: TourModule[] = [
   {
     key: 'task-list',
     title: 'Reading the task list',
-    summary: 'Priorities, search and filters, what each part of a task row means, and the statuses.',
+    summary: 'Search and filters, then every part of a task row from left to right, and the statuses.',
     when: () => true,
     steps: [
       {
         route: listRoute,
+        target: 'task-filters',
+        title: 'Search and filters',
+        body: 'Search by words in the title or description, or by number, like #42. Narrow the list down to one person, to unassigned tasks, or to one label.',
+      },
+      {
+        target: '.task-row',
+        title: 'A task row',
+        body: (c) =>
+          c.hasTasks
+            ? 'Each row is one task; click it to open the task. Let’s go through a row from left to right.'
+            : 'Tasks show up here as rows. There are no tasks you can see yet, so this part of the tour has little to point at.',
+      },
+      {
         target: '.task-row .priority-icon',
         title: 'Priorities',
         body: (c) => {
@@ -197,17 +210,14 @@ export const TOUR_MODULES: TourModule[] = [
         },
       },
       {
-        target: 'task-filters',
-        title: 'Search and filters',
-        body: 'Search by words in the title or description, or by number, like #42. Narrow the list down to one person, to unassigned tasks, or to one label.',
+        target: '.task-row .task-id',
+        title: 'Task number',
+        body: 'Every task has its own number, and it never changes. Search for it with #12, or use it to point at a task in a chat.',
       },
       {
-        target: '.task-row',
-        title: 'A task row',
-        body: (c) =>
-          c.hasTasks
-            ? 'After the priority: the task number, its status, the title, then how many subtasks are done, images, labels, the due date, when it last changed, and who is working on it. Click a row to open the task.'
-            : 'Tasks show up here as rows: priority, number, status and title, then who is working on it. There are no tasks you can see yet.',
+        target: '.task-row .status-icon',
+        title: 'Status',
+        body: 'The icon shows the task’s status. You can choose how statuses are drawn, as rings, dots or icons, in Settings.',
       },
       {
         target: 'status-filter',
@@ -228,6 +238,34 @@ export const TOUR_MODULES: TourModule[] = [
             </p>
           </>
         ),
+      },
+      {
+        target: '.task-row .task-chip',
+        optional: true,
+        title: 'Subtasks and images',
+        body: 'How many of the task’s subtasks are done, and how many images are attached to it.',
+      },
+      {
+        target: '.task-row .label-chip',
+        optional: true,
+        title: 'Labels',
+        body: 'Tags on the task, like “backend” or “blocked”. A row shows up to three; the rest are in the task itself.',
+      },
+      {
+        target: '.task-row .due',
+        optional: true,
+        title: 'Due date',
+        body: 'When the task should be done. It turns orange when the day is close and red once it has passed.',
+      },
+      {
+        target: '.task-row .task-time',
+        title: 'Last change',
+        body: 'When anything about the task last changed. Point at it to see the exact date and time.',
+      },
+      {
+        target: '.task-row .task-assignee',
+        title: 'Assignee',
+        body: 'Who is working on the task. An empty circle means nobody is on it yet.',
       },
     ],
   },
