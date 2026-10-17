@@ -242,7 +242,7 @@ export const TOUR_MODULES: TourModule[] = [
         ),
       },
       {
-        target: '[data-tour="demo-row"] .task-chip',
+        target: '[data-tour="demo-row"] .demo-chips',
         demo: 'row',
         title: 'Subtasks and images',
         body: 'How many of the task’s subtasks are done (here 1 of 3), and how many images are attached to it.',

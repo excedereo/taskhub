@@ -37,11 +37,13 @@ export function DemoTaskRow({ kind }: { kind: TourDemo }) {
       <span className="task-title truncate">{title}</span>
       {kind === 'row' ? (
         <>
-          <span className="task-chip">
-            <ListChecks size={13} /> 1/3
-          </span>
-          <span className="task-chip">
-            <Image size={13} /> 2
+          <span className="demo-chips">
+            <span className="task-chip">
+              <ListChecks size={13} /> 1/3
+            </span>
+            <span className="task-chip">
+              <Image size={13} /> 2
+            </span>
           </span>
           <span className="task-labels">
             <LabelChip label={{ name: 'backend', color: '#0090ff' }} />

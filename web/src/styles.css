@@ -1379,3 +1379,4 @@ body.dragging * { cursor: grabbing !important; user-select: none; }
 .guide-done { color: var(--text-faint); }
 .task-row-demo { cursor: default; pointer-events: none; }
 .tour-demo-list { margin-bottom: 14px; }
+.demo-chips { display: inline-flex; align-items: center; gap: 10px; }
