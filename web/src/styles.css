@@ -653,6 +653,9 @@ select.input { padding-right: 6px; }
 .task-chip-done { color: var(--status-done); }
 .task-parent { color: var(--text-faint); font-size: 12px; }
 .task-row-done .task-title { color: var(--text-muted); }
+/* A finished task fades as a whole (its parts, not the row, so borders and hover stay crisp). */
+.task-row-done > * { opacity: 0.5; transition: opacity 0.12s; }
+.task-row-done:hover > *, .task-row-done.selected > * { opacity: 0.85; }
 
 /* ---------- Ordered category: sections and subtasks ---------- */
 
