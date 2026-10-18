@@ -9,6 +9,8 @@ type Props = {
   /** Shown as "in #12 Parent" when the subtask is listed away from its parent. */
   parent?: Pick<Task, 'id' | 'title'>
   showCategory?: boolean
+  /** The section a task belongs to, shown when it is listed away from it (under Finished). */
+  section?: string
   nested?: boolean
   selected?: boolean
   canTake?: boolean
@@ -16,7 +18,7 @@ type Props = {
   onTake: (task: Task) => void
 }
 
-export function TaskRow({ task: t, parent, showCategory, nested, selected, canTake, onOpen, onTake }: Props) {
+export function TaskRow({ task: t, parent, showCategory, section, nested, selected, canTake, onOpen, onTake }: Props) {
   const { userById, categoryById, labelById, isDone } = useData()
   const done = isDone(t)
   const labels = t.labelIds.map((id) => labelById.get(id)).filter((l) => l !== undefined)
@@ -57,6 +59,11 @@ export function TaskRow({ task: t, parent, showCategory, nested, selected, canTa
         </span>
       )}
       <DueBadge due={t.dueDate} done={done} />
+      {section && (
+        <span className="badge task-section" title="Section">
+          {section}
+        </span>
+      )}
       {showCategory && <span className="badge task-category">{categoryById.get(t.categoryId)?.name}</span>}
       <span className="task-time muted small" title={formatDate(t.updatedAt)}>
         {timeAgo(t.updatedAt)}

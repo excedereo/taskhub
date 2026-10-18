@@ -32,6 +32,13 @@ export function PreferencesPage() {
         <PrefRow label="Density" hint="Compact fits more tasks on the screen" value={prefs.density} onChange={(density) => update({ density })} options={[['comfortable', 'Comfortable'], ['compact', 'Compact']]} />
         <PrefRow label="Animations" hint="Sliding panels, fades and glows" value={prefs.motion} onChange={(motion) => update({ motion })} options={[['full', 'On'], ['reduced', 'Reduced']]} />
         <PrefRow
+          label="Finished tasks"
+          hint="Where finished tasks go inside a category"
+          value={prefs.finished}
+          onChange={(finished) => update({ finished })}
+          options={[['bottom', 'At the bottom'], ['section', 'In each section'], ['inplace', 'In place']]}
+        />
+        <PrefRow
           label="Status icons"
           hint="How statuses are drawn next to tasks"
           value={prefs.status}

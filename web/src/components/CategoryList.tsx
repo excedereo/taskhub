@@ -9,6 +9,7 @@ import { useToast } from './Toast.tsx'
 import { useData } from '../store.tsx'
 import { moveItem, useDragSort } from './useDragSort.ts'
 import { DemoTaskRow, useTourDemo } from '../tour/demo.tsx'
+import { usePrefs } from '../prefs.ts'
 
 type Entry = { task: Task; kids: Task[] }
 type Block = { section: Section | null; entries: Entry[] }
@@ -52,18 +53,20 @@ type ListProps = {
 }
 
 /**
- * The category page: unfinished work in the manual order with its sections,
- * and everything that is done collected at the bottom under "Finished", most recent first.
+ * The category page: work in the manual order with its sections. Where finished tasks go is a
+ * personal choice: collected at the bottom under "Finished" (labelled with their section), at the
+ * bottom of their own section, or left in place.
  */
 export function CategoryList({ tasks, sections, matches, showEmptySections, openTaskId, canTake, onOpen, onTake }: ListProps) {
   const { isDone } = useData()
   const blocks = buildBlocks(tasks, sections)
   const visibleRows = (entries: Entry[]) =>
     entries.map((e) => ({ ...e, kids: e.kids.filter(matches) })).filter((e) => matches(e.task) || e.kids.length)
-  const renderRows = (rows: Entry[]) =>
-    rows.flatMap(({ task, kids }) => [
+  const { finished: mode } = usePrefs()
+  const renderRows = (rows: (Entry & { section?: string })[]) =>
+    rows.flatMap(({ task, kids, section }) => [
       <li key={task.id}>
-        <TaskRow task={task} nested={Boolean(task.parentId)} selected={openTaskId === task.id} canTake={canTake} onOpen={onOpen} onTake={onTake} />
+        <TaskRow task={task} section={section} nested={Boolean(task.parentId)} selected={openTaskId === task.id} canTake={canTake} onOpen={onOpen} onTake={onTake} />
       </li>,
       ...kids.map((k) => (
         <li key={k.id}>
@@ -72,15 +75,21 @@ export function CategoryList({ tasks, sections, matches, showEmptySections, open
       )),
     ])
   const demo = useTourDemo()
-  const finished = visibleRows(
-    blocks.flatMap((b) => b.entries).filter((e) => isDone(e.task)),
-  ).sort((a, b) => (b.task.closedAt ?? 0) - (a.task.closedAt ?? 0))
+  const byClosed = (a: Entry, b: Entry) => (b.task.closedAt ?? 0) - (a.task.closedAt ?? 0)
+  const finished =
+    mode === 'bottom'
+      ? blocks
+          .flatMap((b) => visibleRows(b.entries.filter((e) => isDone(e.task))).map((e) => ({ ...e, section: b.section?.title })))
+          .sort(byClosed)
+      : []
+  const finishedShown = mode === 'bottom' ? finished.length > 0 : mode === 'section' && blocks.some((b) => visibleRows(b.entries.filter((e) => isDone(e.task))).length > 0)
 
   return (
     <div className="stages">
       {blocks.map((b) => {
-        const rows = visibleRows(b.entries.filter((e) => !isDone(e.task)))
-        if (!rows.length && !(b.section && showEmptySections)) return null
+        const rows = visibleRows(mode === 'inplace' ? b.entries : b.entries.filter((e) => !isDone(e.task)))
+        const doneRows = mode === 'section' ? visibleRows(b.entries.filter((e) => isDone(e.task))).sort(byClosed) : []
+        if (!rows.length && !doneRows.length && !(b.section && showEmptySections)) return null
         // The counter still covers finished tasks, so a section shows how far along it is.
         const done = b.entries.filter((e) => isDone(e.task)).length
 
@@ -98,7 +107,15 @@ export function CategoryList({ tasks, sections, matches, showEmptySections, open
             {rows.length ? (
               <ul className="task-list">{renderRows(rows)}</ul>
             ) : (
-              <p className="stage-empty">{b.entries.length && done === b.entries.length ? 'All done' : 'Nothing here yet'}</p>
+              !doneRows.length && <p className="stage-empty">{b.entries.length && done === b.entries.length ? 'All done' : 'Nothing here yet'}</p>
+            )}
+            {doneRows.length > 0 && (
+              <div className="stage-sub-finished">
+                <h3 className="stage-sub-head">
+                  Finished <span className="muted">{doneRows.length}</span>
+                </h3>
+                <ul className="task-list">{renderRows(doneRows)}</ul>
+              </div>
             )}
           </section>
         )
@@ -114,7 +131,7 @@ export function CategoryList({ tasks, sections, matches, showEmptySections, open
           <ul className="task-list">{renderRows(finished)}</ul>
         </section>
       )}
-      {finished.length === 0 && demo === 'finished' && (
+      {!finishedShown && demo === 'finished' && (
         <section className="stage stage-finished">
           <h2 className="stage-head">
             <span className="stage-title">Finished</span>

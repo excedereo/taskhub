@@ -1393,3 +1393,8 @@ body.dragging * { cursor: grabbing !important; user-select: none; }
 .danger-zone p { margin: 0; }
 .danger-zone .btn-danger { background: var(--danger); color: #fff; }
 .danger-zone .btn-danger:disabled { opacity: 0.45; }
+
+/* Finished tasks inside a section, and the section badge under the shared Finished */
+.stage-sub-finished { margin-top: 8px; }
+.stage-sub-head { display: flex; align-items: center; gap: 6px; margin: 0 0 6px 4px; font-size: 12px; font-weight: 500; color: var(--status-done); }
+.task-section { color: var(--text-muted); }

@@ -150,10 +150,10 @@ export const TOUR_MODULES: TourModule[] = [
         body: 'A category can be split into sections, for example the stages of a plan. A section is a group of tasks inside this category, not a category of its own: its tasks still belong here. The numbers show how many of its tasks are done.',
       },
       {
-        target: '.stage-finished',
+        target: '.stage-finished, .stage-sub-finished',
         demo: 'finished',
         title: 'Finished',
-        body: 'Tasks with a finished status move down here, so what is left stays on top. Their section still counts them.',
+        body: 'Finished tasks move out of the way, so what is left stays on top; their section still counts them. You choose where they go in Settings: to the bottom of the category, to the bottom of their own section, or nowhere at all.',
       },
       {
         target: 'arrange',

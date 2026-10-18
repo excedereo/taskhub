@@ -17,6 +17,8 @@ export type Prefs = {
   motion: 'full' | 'reduced'
   priority: 'bars' | 'dots' | 'icons'
   status: 'rings' | 'dots' | 'icons'
+  /** Inside a category: finished tasks collected at the bottom, at the bottom of their own section, or left where they were. */
+  finished: 'bottom' | 'section' | 'inplace'
   statusLooks: Record<number, Look>
   priorityLooks: Record<number, Look>
   custom: ThemeDef
@@ -30,6 +32,7 @@ export const DEFAULT_PREFS: Prefs = {
   motion: 'full',
   priority: 'bars',
   status: 'rings',
+  finished: 'bottom',
   statusLooks: {},
   priorityLooks: {},
   custom: { base: 'dark', colors: BASE_COLORS.dark },
@@ -79,6 +82,7 @@ export function readPrefs(): Prefs {
       motion: raw.motion === 'reduced' ? 'reduced' : 'full',
       priority: raw.priority === 'dots' || raw.priority === 'icons' ? raw.priority : 'bars',
       status: raw.status === 'dots' || raw.status === 'icons' ? raw.status : 'rings',
+      finished: raw.finished === 'section' || raw.finished === 'inplace' ? raw.finished : 'bottom',
       statusLooks: parseLooks(raw.statusLooks),
       priorityLooks: parseLooks(raw.priorityLooks),
       custom: parseCustom(raw.custom),
