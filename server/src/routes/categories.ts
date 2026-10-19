@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { db, transaction } from '../db.ts'
 import { audit, diff } from '../audit.ts'
-import { badRequest, can, canSeeCategory, forbidden, idParam, me, notFound, requirePermission, text } from '../http.ts'
+import { badRequest, can, canSeeCategory, forbidden, idParam, me, notFound, requirePermission, text, visibleCategories } from '../http.ts'
 import type { Request } from 'express'
 import { removeFiles } from './attachments.ts'
 
@@ -14,6 +14,8 @@ type CategoryRow = {
   archived: number
   created_by: number | null
   created_at: number
+  position: number
+  folder_id: number | null
   open_count: number
   done_top_count: number
   total_count: number
@@ -29,6 +31,8 @@ const serializeCategory = (c: CategoryRow) => ({
   openCount: c.open_count,
   doneCount: c.done_top_count,
   totalCount: c.total_count,
+  position: c.position,
+  folderId: c.folder_id,
 })
 
 const CATEGORY_SELECT = `
@@ -72,6 +76,65 @@ categoriesRouter.post('/categories', requirePermission('manage_categories'), (re
  * Reorders the categories the user sees. Hidden ones keep their slots: the visible categories
  * are written back into the positions they already occupied, just in the new order.
  */
+type FolderRow = { id: number; name: string; position: number; created_at: number }
+
+categoriesRouter.get('/category-folders', (_req, res) => {
+  const rows = db.prepare('SELECT * FROM category_folders ORDER BY position, id').all() as FolderRow[]
+  res.json(rows.map((f) => ({ id: f.id, name: f.name, position: f.position })))
+})
+
+type LayoutEntry = { type?: unknown; id?: unknown; name?: unknown }
+
+/**
+ * The whole sidebar in one go: loose categories first, then each folder followed by its categories.
+ * Folders missing from the list are deleted (their categories just become loose).
+ */
+categoriesRouter.put('/categories/layout', requirePermission('manage_categories'), (req, res) => {
+  const actor = me(req)
+  // Folders are shared by everyone, so only someone who sees every category may rebuild them.
+  if (visibleCategories(req) !== null) throw forbidden('Only someone who can see every category can arrange folders')
+  const items: unknown = req.body?.items
+  if (!Array.isArray(items) || items.length > 2000) throw badRequest('items must be a list')
+
+  const active = (db.prepare('SELECT id FROM categories WHERE archived = 0').all() as { id: number }[]).map((r) => r.id)
+  const folders = new Map((db.prepare('SELECT * FROM category_folders').all() as FolderRow[]).map((f) => [f.id, f]))
+  const seen = new Set<number>()
+  const keep = new Set<number>()
+  const names: string[] = []
+
+  transaction(() => {
+    let pos = 1
+    let folder: number | null = null
+    for (const raw of items as LayoutEntry[]) {
+      if (raw?.type === 'folder') {
+        const name = text(raw.name, 'Folder name', { min: 1, max: 48 })
+        if (raw.id !== undefined && raw.id !== null) {
+          const id = Number(raw.id)
+          if (!folders.has(id)) throw badRequest('Unknown folder')
+          db.prepare('UPDATE category_folders SET name = ?, position = ? WHERE id = ?').run(name, pos, id)
+          folder = id
+        } else {
+          folder = Number(db.prepare('INSERT INTO category_folders (name, position, created_at) VALUES (?, ?, ?)').run(name, pos, Date.now()).lastInsertRowid)
+        }
+        keep.add(folder)
+        names.push(name)
+      } else if (raw?.type === 'category') {
+        const id = Number(raw.id)
+        if (!active.includes(id) || seen.has(id)) throw badRequest('Unknown or repeated category in layout')
+        seen.add(id)
+        db.prepare('UPDATE categories SET position = ?, folder_id = ? WHERE id = ?').run(pos, folder, id)
+      } else {
+        throw badRequest('Each item is a folder or a category')
+      }
+      pos++
+    }
+    if (seen.size !== active.length) throw badRequest('The layout must list every active category')
+    for (const id of folders.keys()) if (!keep.has(id)) db.prepare('DELETE FROM category_folders WHERE id = ?').run(id)
+    audit(actor.id, 'category', null, 'category.reordered', { count: seen.size, folders: names })
+  })
+  res.json({ ok: true })
+})
+
 categoriesRouter.put('/categories/order', requirePermission('manage_categories'), (req, res) => {
   const actor = me(req)
   const ids: unknown = req.body?.ids

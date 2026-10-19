@@ -283,6 +283,17 @@ const migrations: string[] = [
   -- Whether a token's changes carry "via <token name>" in the history. Only administrators may turn it off.
   ALTER TABLE api_tokens ADD COLUMN mark INTEGER NOT NULL DEFAULT 1;
   `,
+  `
+  -- Folders group categories in the sidebar. They share the categories' position space, so loose
+  -- categories and folders form one ordered list; a category's own position orders it inside its folder.
+  CREATE TABLE category_folders (
+    id         INTEGER PRIMARY KEY,
+    name       TEXT NOT NULL,
+    position   REAL NOT NULL,
+    created_at INTEGER NOT NULL
+  );
+  ALTER TABLE categories ADD COLUMN folder_id INTEGER REFERENCES category_folders(id) ON DELETE SET NULL;
+  `,
 ]
 
 const current = (db.prepare('PRAGMA user_version').get() as { user_version: number }).user_version

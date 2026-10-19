@@ -1408,3 +1408,15 @@ body.dragging * { cursor: grabbing !important; user-select: none; }
 .about-links { display: flex; gap: 14px; }
 .brand-mark-default { background: none; border-radius: 0; }
 .brand-mark-default img { object-fit: contain; }
+
+/* Category folders in the sidebar */
+.nav-folder-head { width: 100%; border: none; background: none; font: inherit; text-align: left; cursor: pointer; }
+.nav-folder-chevron { flex-shrink: 0; color: var(--text-faint); transform: rotate(90deg); transition: transform 0.15s; }
+.nav-folder.is-closed .nav-folder-chevron { transform: none; }
+.nav-folder-head .nav-count { margin-right: -2px; }
+.nav-item-nested { padding-left: 26px; }
+.nav-arrange-folder { background: var(--bg-subtle); }
+.nav-arrange-nested { margin-left: 14px; }
+.nav-arrange-name { flex: 1; min-width: 0; height: 24px; padding: 0 6px; border: 1px solid transparent; border-radius: 5px; background: transparent; color: var(--text); font: inherit; font-weight: 500; }
+.nav-arrange-name:hover, .nav-arrange-name:focus { border-color: var(--border); background: var(--surface); outline: none; }
+.nav-arrange-add { margin-right: auto; }

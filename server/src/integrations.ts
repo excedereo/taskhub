@@ -227,6 +227,8 @@ export function buildEmbed(e: AuditEntry): Embed | null {
     'user.removed': `removed ${name}`,
     'user.token_created': `created an API token`,
     'user.token_revoked': `revoked an API token`,
+    'user.token_unmarked': 'stopped marking the changes of one of their API tokens',
+    'user.token_marked': 'marked the changes of one of their API tokens again',
     'user.joined': 'joined the team',
     'user.activated': 'signed in for the first time',
     'user.bootstrap': 'set up this instance',
@@ -238,7 +240,8 @@ export function buildEmbed(e: AuditEntry): Embed | null {
     'theme.updated': `edited the theme ${name}`,
     'theme.deleted': `deleted the theme ${name}`,
   }
-  const text = simple[e.action] ?? esc(e.action)
+  // Something without a sentence yet still reads as words, never as an internal code.
+  const text = simple[e.action] ?? `made a change (${esc(e.action.split('.').pop()!.replace(/_/g, ' '))})`
   return { color: 0xa1a1aa, description: `${actor}** ${text}` }
 }
 

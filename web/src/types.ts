@@ -77,7 +77,11 @@ export type Category = {
   /** Finished top-level tasks that are not archived yet. */
   doneCount: number
   totalCount: number
+  position: number
+  folderId: number | null
 }
+
+export type CategoryFolder = { id: number; name: string; position: number }
 
 export type Task = {
   id: number

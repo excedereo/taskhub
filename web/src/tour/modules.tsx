@@ -135,7 +135,7 @@ export const TOUR_MODULES: TourModule[] = [
         sidebar: true,
         when: (c) => c.can('manage_categories'),
         title: 'New category',
-        body: 'Create a category for a new kind of work. Roles can be limited to see, or to add tasks in, only some categories.',
+        body: 'Create a category for a new kind of work. The button next to it arranges the menu: drag categories into a new order and group them into folders. Roles can be limited to see, or to add tasks in, only some categories.',
       },
       {
         route: categoryRoute,
