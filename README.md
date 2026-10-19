@@ -124,9 +124,13 @@ web/src/
 | `SESSION_DAYS` | `30` | How long a sign-in lasts |
 | `DEV_LOGIN` | `false` | Sign in without Discord. Ignored in production |
 | `MAX_UPLOAD_MB` | `10` | Largest image that can be attached to a task |
+| `REPO_URL` | `https://github.com/excedereo/taskhub` | Where the "Source code" link in the profile points. Set it to your fork if you change the code |
+| `GIT_COMMIT` | | Commit shown next to the version; `GIT_COMMIT=$(git rev-parse --short HEAD) docker compose up -d --build` fills it in |
 
 The instance name, logo, registration mode and default role are set in the app under **Settings**.
 
 ## License
 
-[MIT](LICENSE)
+Taskhub is free software under the [GNU Affero General Public License v3.0](LICENSE). You can use, change and share it. If you run a modified version for other people over a network, you have to offer them its source code: the profile page links to it, so point `REPO_URL` at your fork.
+
+Copyright (C) 2026 Taskhub contributors. Versions published before 20 October 2026 were released under the MIT license.

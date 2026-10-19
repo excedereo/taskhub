@@ -113,13 +113,13 @@ export function ProfilePage() {
           </span>
           <span className="about-links">
             <a href={meta.repoUrl} target="_blank" rel="noreferrer">
-              GitHub
+              Source code
             </a>
             <a href={`${meta.repoUrl}/issues`} target="_blank" rel="noreferrer">
               Report a bug
             </a>
             <a href={`${meta.repoUrl}/blob/main/LICENSE`} target="_blank" rel="noreferrer">
-              MIT license
+              AGPL-3.0 license
             </a>
           </span>
         </footer>

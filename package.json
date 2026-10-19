@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "description": "Self-hosted task tracker for small dev teams with Discord sign-in, roles and a full audit log",
-  "license": "MIT",
+  "license": "AGPL-3.0-only",
   "workspaces": [
     "server",
     "web"
