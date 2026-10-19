@@ -279,6 +279,10 @@ const migrations: string[] = [
   -- the welcome prompt does not come back on every new device.
   ALTER TABLE users ADD COLUMN tour_state TEXT;
   `,
+  `
+  -- Whether a token's changes carry "via <token name>" in the history. Only administrators may turn it off.
+  ALTER TABLE api_tokens ADD COLUMN mark INTEGER NOT NULL DEFAULT 1;
+  `,
 ]
 
 const current = (db.prepare('PRAGMA user_version').get() as { user_version: number }).user_version

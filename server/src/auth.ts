@@ -78,13 +78,13 @@ function rateLimited(tokenId: number) {
   return slot.count > RATE_LIMIT
 }
 
-type TokenRow = SessionRow & { token_id: number; token_name: string; read_only: number; last_used_at: number | null }
+type TokenRow = SessionRow & { token_id: number; token_name: string; read_only: number; mark: number; last_used_at: number | null }
 
 /** `Authorization: Bearer th_...`: a personal API token acts as its owner, with their current role. */
 function tokenAuth(req: Request, header: string, next: NextFunction) {
   const token = header.slice(7).trim()
   const row = db.prepare(`
-    SELECT ${USER_COLUMNS}, t.id AS token_id, t.name AS token_name, t.read_only, t.last_used_at
+    SELECT ${USER_COLUMNS}, t.id AS token_id, t.name AS token_name, t.read_only, t.mark, t.last_used_at
     FROM api_tokens t
     JOIN users u ON u.id = t.user_id
     JOIN roles r ON r.id = u.role_id
@@ -105,7 +105,9 @@ function tokenAuth(req: Request, header: string, next: NextFunction) {
   if (!row.last_used_at || Date.now() - row.last_used_at > 60_000) db.prepare('UPDATE api_tokens SET last_used_at = ? WHERE id = ?').run(Date.now(), row.token_id)
   req.user = user
   req.apiToken = { id: row.token_id, name: row.token_name, readOnly }
-  requestContext.run({ via: row.token_name }, next)
+  // An unmarked token only stays unmarked while its owner is an administrator.
+  if (row.mark || !user.permissions.includes('admin')) requestContext.run({ via: row.token_name }, next)
+  else next()
 }
 
 export function sessionMiddleware(req: Request, _res: Response, next: NextFunction) {

@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/logo.svg" width="96" alt="Taskhub logo"></p>
+
 # Taskhub
 
 A small self-hosted task tracker for dev teams. People sign in with Discord, work is split into categories and stages, and every change ends up in an audit log.

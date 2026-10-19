@@ -20,6 +20,9 @@ export type Meta = {
   needsSetup: boolean
   logoUrl: string | null
   permissions: PermissionInfo[]
+  version: string
+  commit: string | null
+  repoUrl: string
 }
 
 export type Me = {
@@ -174,6 +177,7 @@ export type ApiToken = {
   name: string
   hint: string
   readOnly: boolean
+  marked: boolean
   expiresAt: number | null
   lastUsedAt: number | null
   createdAt: number

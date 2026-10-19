@@ -48,7 +48,7 @@ export function LoginPage() {
   return (
     <div className="login">
       <div className="login-card">
-        <BrandMark name={meta.instanceName} logoUrl={meta.logoUrl} large />
+        <BrandMark logoUrl={meta.logoUrl} large />
         <h1>Sign in to {meta.instanceName}</h1>
         <p className="muted">
           {meta.needsSetup ? 'This instance is brand new. The first person to sign in becomes its owner.' : 'Use the Discord account your team added you with.'}

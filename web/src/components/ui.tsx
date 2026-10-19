@@ -149,11 +149,12 @@ export function RoleBadge({ role }: { role: Pick<Role, 'name' | 'color'> | undef
   )
 }
 
-/** The instance mark: the uploaded logo, or the first letter of the name. */
-export function BrandMark({ name, logoUrl, large }: { name: string; logoUrl: string | null; large?: boolean }) {
+/** The instance mark: the uploaded logo, or the Taskhub mark when there is none. */
+export function BrandMark({ logoUrl, large }: { logoUrl: string | null; large?: boolean }) {
   return (
-    <span className={large ? 'brand-mark brand-mark-lg' : 'brand-mark'} aria-hidden>
-      {logoUrl ? <img src={logoUrl} alt="" /> : name.slice(0, 1).toUpperCase()}
+    <span className={`${large ? 'brand-mark brand-mark-lg' : 'brand-mark'}${logoUrl ? '' : ' brand-mark-default'}`} aria-hidden>
+      {/* Without a workspace logo, the Taskhub mark stands in. */}
+      <img src={logoUrl ?? '/favicon.svg'} alt="" />
     </span>
   )
 }

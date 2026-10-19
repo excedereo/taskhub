@@ -97,6 +97,33 @@ export function ProfilePage() {
       </section>
 
       {can('use_api') && <ApiTokens />}
+
+      {meta && (
+        <footer className="about">
+          <span>
+            Taskhub {meta.version}
+            {meta.commit && (
+              <>
+                {' · '}
+                <a href={`${meta.repoUrl}/commit/${meta.commit}`} target="_blank" rel="noreferrer" className="mono">
+                  {meta.commit.slice(0, 7)}
+                </a>
+              </>
+            )}
+          </span>
+          <span className="about-links">
+            <a href={meta.repoUrl} target="_blank" rel="noreferrer">
+              GitHub
+            </a>
+            <a href={`${meta.repoUrl}/issues`} target="_blank" rel="noreferrer">
+              Report a bug
+            </a>
+            <a href={`${meta.repoUrl}/blob/main/LICENSE`} target="_blank" rel="noreferrer">
+              MIT license
+            </a>
+          </span>
+        </footer>
+      )}
     </div>
   )
 }

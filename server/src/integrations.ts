@@ -291,7 +291,7 @@ function payload(embeds: Embed[]) {
   return {
     username: senderName(),
     // Discord fetches the avatar itself, so it only works when the instance is reachable from the internet.
-    ...(logo && config.secureCookies ? { avatar_url: config.publicUrl + logo } : {}),
+    ...(config.secureCookies ? { avatar_url: config.publicUrl + (logo ?? '/logo.png') } : {}),
     embeds,
     allowed_mentions: { parse: [] },
   }

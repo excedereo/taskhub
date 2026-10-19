@@ -1,6 +1,10 @@
 services:
   taskhub:
-    build: .
+    build:
+      context: .
+      args:
+        # Optional: GIT_COMMIT=$(git rev-parse --short HEAD) docker compose up -d --build
+        GIT_COMMIT: ${GIT_COMMIT:-}
     restart: unless-stopped
     env_file: .env
     environment:

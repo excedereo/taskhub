@@ -28,6 +28,10 @@ export const config = {
   // Lets you sign in with any Discord ID without OAuth. Never enabled in production.
   devLogin: env.DEV_LOGIN === 'true' && env.NODE_ENV !== 'production',
   sessionDays: Number(env.SESSION_DAYS ?? 30),
+  /** Shown in the profile footer; forks can point it at their own repository. */
+  repoUrl: (env.REPO_URL ?? 'https://github.com/excedereo/taskhub').replace(/\/+$/, ''),
+  /** Set at build time (docker compose passes it from git), empty when unknown. */
+  commit: (env.GIT_COMMIT ?? '').slice(0, 12),
 }
 
 export const discordConfigured = Boolean(config.discord.clientId && config.discord.clientSecret)

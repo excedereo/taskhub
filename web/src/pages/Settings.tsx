@@ -149,7 +149,7 @@ function LogoField() {
 
   return (
     <div className="card logo-field">
-      <BrandMark name={meta.instanceName} logoUrl={meta.logoUrl} large />
+      <BrandMark logoUrl={meta.logoUrl} large />
       <div className="stack grow">
         <span>Logo</span>
         <span className="muted small">Square PNG, JPEG, WebP or GIF up to 2 MB. Used in the sidebar, on the sign-in page and as the tab icon.</span>

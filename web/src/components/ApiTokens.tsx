@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Check, Copy, KeyRound } from 'lucide-react'
 import { api } from '../api.ts'
+import { useMe } from '../store.tsx'
 import type { ApiToken } from '../types.ts'
 import { cx, formatDate, timeAgo } from '../util.ts'
 import { ConfirmButton } from './ui.tsx'
@@ -54,6 +55,8 @@ export function ApiTokens() {
   const [tokens, setTokens] = useState<ApiToken[] | null>(null)
   const [name, setName] = useState('')
   const [readOnly, setReadOnly] = useState(false)
+  const [marked, setMarked] = useState(true)
+  const isAdmin = useMe().permissions.includes('admin')
   const [expires, setExpires] = useState<number | null>(null)
   const [busy, setBusy] = useState(false)
   const [fresh, setFresh] = useState<string | null>(null)
@@ -67,7 +70,7 @@ export function ApiTokens() {
     e.preventDefault()
     setBusy(true)
     try {
-      const created = await api.post<ApiToken & { token: string }>('/me/tokens', { name: name.trim(), readOnly, expiresInDays: expires })
+      const created = await api.post<ApiToken & { token: string }>('/me/tokens', { name: name.trim(), readOnly, expiresInDays: expires, marked })
       setFresh(created.token)
       setName('')
       await reload()
@@ -75,6 +78,15 @@ export function ApiTokens() {
       toast.error(err)
     } finally {
       setBusy(false)
+    }
+  }
+
+  const setMark = async (t: ApiToken, value: boolean) => {
+    try {
+      await api.patch(`/me/tokens/${t.id}`, { marked: value })
+      await reload()
+    } catch (err) {
+      toast.error(err)
     }
   }
 
@@ -120,6 +132,11 @@ export function ApiTokens() {
               </button>
             </div>
             <Select variant="sm" aria-label="Expires" value={expires} onChange={setExpires} options={EXPIRY} />
+            {isAdmin && (
+              <label className="token-mark" title="Show “via <token name>” next to changes made with this token">
+                <input type="checkbox" checked={marked} onChange={(e) => setMarked(e.target.checked)} /> Mark changes
+              </label>
+            )}
             <button className="btn btn-primary" disabled={busy || !name.trim()}>
               <KeyRound size={14} /> Create token
             </button>
@@ -134,13 +151,18 @@ export function ApiTokens() {
                 <li key={t.id} className={cx(expired && 'dimmed')}>
                   <span className="stack min-w-0 grow">
                     <span className="truncate">
-                      {t.name} {t.readOnly && <span className="badge badge-sm">Read only</span>} {expired && <span className="badge badge-sm">Expired</span>}
+                      {t.name} {t.readOnly && <span className="badge badge-sm">Read only</span>} {!t.marked && <span className="badge badge-sm" title="Changes made with this token are not marked in the history">Unmarked</span>} {expired && <span className="badge badge-sm">Expired</span>}
                     </span>
                     <span className="muted small truncate">
                       <span className="mono">th_…{t.hint}</span> · created {timeAgo(t.createdAt)} · {t.lastUsedAt ? `used ${timeAgo(t.lastUsedAt)}` : 'never used'}
                       {t.expiresAt && !expired && <span title={formatDate(t.expiresAt)}> · expires {new Date(t.expiresAt).toLocaleDateString('en', { dateStyle: 'medium' })}</span>}
                     </span>
                   </span>
+                  {isAdmin && (
+                    <button type="button" className="btn btn-sm btn-ghost" onClick={() => setMark(t, !t.marked)} title={t.marked ? 'Stop showing “via” for this token' : 'Show “via” for this token again'}>
+                      {t.marked ? 'Hide via' : 'Show via'}
+                    </button>
+                  )}
                   <ConfirmButton className="btn-sm" confirmText="Revoke?" onConfirm={() => revoke(t)}>
                     Revoke
                   </ConfirmButton>

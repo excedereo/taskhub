@@ -1,9 +1,9 @@
 import dns from 'node:dns'
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import express, { type NextFunction, type Request, type Response } from 'express'
 import cookieParser from 'cookie-parser'
-import { config, discordConfigured } from './config.ts'
+import { config, discordConfigured, rootDir } from './config.ts'
 import { db, getSetting } from './db.ts'
 import { pruneSessions, sessionMiddleware } from './auth.ts'
 import { HttpError, me, requireAuth } from './http.ts'
@@ -28,6 +28,8 @@ import { startWebhookWorker } from './integrations.ts'
 
 // Many cheap VPS hosts ship broken IPv6; prefer IPv4 when talking to Discord.
 dns.setDefaultResultOrder('ipv4first')
+
+const version = (JSON.parse(readFileSync(path.join(rootDir, 'package.json'), 'utf8')) as { version: string }).version
 
 const app = express()
 app.disable('x-powered-by')
@@ -60,6 +62,9 @@ api.get('/meta', (_req, res) => {
     needsSetup: count === 0,
     logoUrl: logoUrl(),
     permissions: PERMISSIONS,
+    version,
+    commit: config.commit || null,
+    repoUrl: config.repoUrl,
   })
 })
 

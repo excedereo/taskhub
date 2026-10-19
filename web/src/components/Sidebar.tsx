@@ -37,7 +37,7 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
     <aside className="sidebar">
       <div className="sidebar-head">
         <Link to="/tasks" className="brand" title={meta?.instanceName}>
-          <BrandMark name={meta?.instanceName ?? 'T'} logoUrl={meta?.logoUrl ?? null} />
+          <BrandMark logoUrl={meta?.logoUrl ?? null} />
           <span className="brand-name">{meta?.instanceName}</span>
         </Link>
         <button className="icon-btn collapse-btn" onClick={onToggle} aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} title={collapsed ? 'Expand' : 'Collapse'}>

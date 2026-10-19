@@ -9,6 +9,9 @@ RUN npm run build
 
 FROM node:24-alpine
 WORKDIR /app
+# The commit this image was built from, shown in the profile footer (optional).
+ARG GIT_COMMIT=""
+ENV GIT_COMMIT=$GIT_COMMIT
 ENV NODE_ENV=production \
     PORT=3000 \
     DATABASE_PATH=/data/taskhub.db

@@ -1401,3 +1401,10 @@ body.dragging * { cursor: grabbing !important; user-select: none; }
 .stage-sub-finished { margin-top: 8px; }
 .stage-sub-head { display: flex; align-items: center; gap: 6px; margin: 0 0 6px 4px; font-size: 12px; font-weight: 500; color: var(--status-done); }
 .task-section { color: var(--text-muted); }
+.token-mark { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-muted); }
+.about { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-faint); }
+.about a { color: var(--text-muted); text-decoration: none; }
+.about a:hover { color: var(--text); text-decoration: underline; text-underline-offset: 2px; }
+.about-links { display: flex; gap: 14px; }
+.brand-mark-default { background: none; border-radius: 0; }
+.brand-mark-default img { object-fit: contain; }
