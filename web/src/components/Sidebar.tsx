@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { Archive, Building2, ChartColumn, ChevronRight, Folder, FolderOpen, FolderPlus, GripVertical, Hash, Inbox, Layers, LogOut, PanelLeftClose, PanelLeftOpen, Plus, ScrollText, Settings, Settings2, Shield, Users, Webhook, X } from 'lucide-react'
+import { Archive, Building2, LayoutDashboard, ChevronRight, Folder, FolderOpen, FolderPlus, GripVertical, Hash, Inbox, Layers, LogOut, PanelLeftClose, PanelLeftOpen, Plus, ScrollText, Settings, Settings2, Shield, Users, Webhook, X } from 'lucide-react'
 import { api } from '../api.ts'
 import type { Category, CategoryFolder } from '../types.ts'
 import { moveItem, useDragSort } from './useDragSort.ts'
@@ -103,7 +103,7 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
         <div className="nav-group">
           <NavItem to="/tasks?assignee=me" icon={<Inbox size={16} />} label="My tasks" tour="nav-my" active={onTasks && params.get('assignee') === 'me'} collapsed={collapsed} />
           <NavItem to="/tasks" icon={<Layers size={16} />} label="All tasks" tour="nav-all" active={onTasks && params.get('assignee') !== 'me'} collapsed={collapsed} />
-          <NavItem to="/analytics" icon={<ChartColumn size={16} />} label="Analytics" tour="nav-analytics" active={pathname === '/analytics'} collapsed={collapsed} />
+          <NavItem to="/dashboard" icon={<LayoutDashboard size={16} />} label="Dashboard" tour="nav-analytics" active={pathname === '/dashboard'} collapsed={collapsed} />
           <NavItem to="/archived" icon={<Archive size={16} />} label="Archived" tour="nav-archived" active={pathname === '/archived'} collapsed={collapsed} />
         </div>
 

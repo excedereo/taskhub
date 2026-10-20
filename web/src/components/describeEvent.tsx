@@ -209,6 +209,8 @@ export function describeEvent(e: AuditEvent, ctx: EventContext, inTask = false):
       return joinParts(parts)
     }
 
+    case 'settings.dashboard':
+      return d.reset ? 'put the dashboard back to its default layout' : 'rearranged the dashboard'
     case 'settings.updated': {
       if (changes.logo) return changes.logo[1] ? 'uploaded a new logo' : 'removed the logo'
       const labels: Record<string, string> = { instanceName: 'instance name', registration: 'registration mode', defaultRoleId: 'default role' }

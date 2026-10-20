@@ -2,6 +2,17 @@
 
 New features raise the middle number (0.2.0 → 0.3.0), fixes and small changes raise the last one (0.3.0 → 0.3.1).
 
+## 1.0.0 — 2026-10-20
+
+The first stable release.
+
+**Dashboard**
+- Analytics becomes a dashboard for the whole workspace, built from widgets: Number, Countdown, Deadlines, Breakdown (ring or bars, by category, status, priority, person or label), Progress, Created and finished, Honeycomb, Activity calendar, Stuck, Workload and Note
+- People with the new Manage dashboard permission add widgets, drag them into order, pick a size (a quarter, half or the full width) and set each one up; changes are recorded in the audit log
+- The default layout covers what the old Analytics page showed, plus a countdown to the next deadline and the list of deadlines
+- Widgets only count what the viewer is allowed to see; archived tasks still count in history, so archiving does not rewrite the past
+- /analytics now opens the dashboard
+
 ## 0.2.0 — 2026-10-20
 
 Everything added since the first release.

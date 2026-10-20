@@ -233,6 +233,7 @@ export function buildEmbed(e: AuditEntry): Embed | null {
     'user.activated': 'signed in for the first time',
     'user.bootstrap': 'set up this instance',
     'settings.updated': 'changed workspace settings',
+    'settings.dashboard': 'rearranged the dashboard',
     'integration.created': `connected the webhook ${name}`,
     'integration.updated': `changed the webhook ${name}`,
     'integration.deleted': `removed the webhook ${name}`,

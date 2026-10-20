@@ -14,16 +14,16 @@ A small self-hosted task tracker for dev teams. People sign in with Discord, wor
 - **Subtasks.** Break a task into steps with their own status and assignee; the parent shows progress. Subtasks move, archive and get deleted together with their parent.
 - **Finished at the bottom.** Inside a category, done work collects in a "Finished" section, while each stage keeps counting it.
 - **Images.** Paste a screenshot with Ctrl+V, drop files or pick them. Shown as a tidy grid with a full-screen viewer.
-- **Archive.** Take old or irrelevant tasks out of lists and analytics without losing them; restore any time.
+- **Archive.** Take old or irrelevant tasks out of lists and the dashboard without losing them; restore any time.
 
 **Team**
 - **Discord sign-in.** No passwords. The first person to sign in becomes the owner; everyone else is added by Discord user ID, or you can open registration to anyone.
 - **Roles and permissions.** Any mix of: manage settings, users, roles and categories; create, edit, delete any or delete own tasks; assign and take tasks; view the audit log.
-- **Per-role category limits.** Decide which categories a role can see at all, and in which it can create tasks. Hidden categories disappear everywhere, including direct links, analytics and the audit log.
+- **Per-role category limits.** Decide which categories a role can see at all, and in which it can create tasks. Hidden categories disappear everywhere, including direct links, the dashboard and the audit log.
 - **No privilege escalation.** People can only grant permissions and categories they have themselves, and cannot change their own role.
 
 **Overview**
-- **Analytics.** Open, in progress, in review and finished at a glance, unfinished work by category, progress per stage, tasks stuck for days, and workload per person.
+- **Dashboard.** One shared dashboard built from widgets: counts, countdowns and deadlines, breakdowns as rings or bars, progress per category and section, created vs finished over time, a honeycomb of categories, an activity calendar, stuck tasks, workload and notes. People with the right permission arrange it.
 - **Audit log.** Every change to tasks, categories, users, roles and settings, with who did it and what changed. Each task also shows its own history.
 - **API and AI agents.** Personal API tokens and a built-in MCP server, so Claude Code and other agents can find, create, take and update tasks with exactly their owner's permissions. Their changes are marked in the history. See [docs/API.md](docs/API.md).
 - **Discord webhooks.** Post a feed of chosen events (new tasks, status changes, finished work, and more) to any Discord channel, limited to the categories you pick. Bursts are combined into one message and Discord rate limits are respected.
@@ -33,9 +33,9 @@ A small self-hosted task tracker for dev teams. People sign in with Discord, wor
 - Your own name and logo, a collapsible sidebar, and it works on phones.
 - **Themes.** Light, dark, a few built-in ones, and your own colors. People with the right permission can add workspace themes for everyone, including custom CSS for effects (see [docs/themes/hyperpink.css](docs/themes/hyperpink.css) for an over-the-top example).
 
-| Task details | Analytics |
+| Task details | Dashboard |
 |---|---|
-| ![Task panel with subtasks and images](docs/screenshots/task.png) | ![Analytics](docs/screenshots/analytics.png) |
+| ![Task panel with subtasks and images](docs/screenshots/task.png) | ![Dashboard](docs/screenshots/dashboard.png) |
 | **Roles with category limits** | **Light theme** |
 | ![Role editor](docs/screenshots/roles.png) | ![Light theme](docs/screenshots/light.png) |
 
@@ -104,10 +104,13 @@ server/src/
   permissions.ts   the permission list and category limits
   http.ts          request helpers, permission and visibility checks
   audit.ts         audit log helpers
-  routes/          auth, users, roles, categories, tasks, attachments,
-                   analytics, logo, audit + settings
+  routes/          auth, users, roles, categories, tasks, attachments, dashboard,
+                   themes, tokens, mcp, integrations, logo, audit + settings
+  integrations.ts  Discord webhook queue and delivery
 web/src/
   pages/           one file per screen
+  dashboard/       dashboard widgets and their settings
+  tour/            the guided tour, one guide per feature
   components/      sidebar, task panel, category list, gallery, select, shared UI
   styles.css       all styles; design tokens at the top
 ```
