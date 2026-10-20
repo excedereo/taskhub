@@ -2,6 +2,12 @@
 
 New features raise the middle number (0.2.0 → 0.3.0), fixes and small changes raise the last one (0.3.0 → 0.3.1).
 
+## 1.1.0 — 2026-10-20
+
+- Arrange Analytics right on the page: every widget gets a toolbar, drag it around the grid by its handle (or move it with the arrow keys), change its size and settings in place, and add widgets from the last tile
+- The page is called Analytics again; /dashboard still opens it
+- Progress is compact: one bar per category, and its sections fold out with the arrow; which ones are open is remembered per person
+
 ## 1.0.0 — 2026-10-20
 
 The first stable release.

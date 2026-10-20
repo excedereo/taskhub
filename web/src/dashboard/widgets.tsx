@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type MouseEvent, type ReactNode } from 'react'
+import { ChevronRight } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useData } from '../store.tsx'
 import { useLooks } from '../prefs.ts'
@@ -297,8 +298,34 @@ function StackBar({ counts, scale }: { counts: Counts; scale?: number }) {
   )
 }
 
+const OPEN_KEY = 'taskhub.progress.open'
+
+/** Which categories this person has unfolded in Progress widgets, remembered in this browser. */
+function useOpenCategories() {
+  const [open, setOpen] = useState<number[]>(() => {
+    try {
+      const v = JSON.parse(localStorage.getItem(OPEN_KEY) ?? '[]')
+      return Array.isArray(v) ? v.filter((x) => typeof x === 'number') : []
+    } catch {
+      return []
+    }
+  })
+  const toggle = (id: number) =>
+    setOpen((list) => {
+      const next = list.includes(id) ? list.filter((x) => x !== id) : [...list, id]
+      try {
+        localStorage.setItem(OPEN_KEY, JSON.stringify(next))
+      } catch {
+        // storage unavailable: it just won't be remembered
+      }
+      return next
+    })
+  return [open, toggle] as const
+}
+
 export function ProgressWidget({ widget, data }: Props) {
   const { categories } = useData()
+  const [unfolded, toggle] = useOpenCategories()
   const { current, typeOf } = useTasks({ ...widget, config: { ...widget.config, labelId: null } }, data)
   const only = num(widget.config.categoryId)
   const list = categories.filter((c) => !c.archived && (only === null || c.id === only)).sort((a, b) => a.position - b.position || a.id - b.id)
@@ -321,35 +348,46 @@ export function ProgressWidget({ widget, data }: Props) {
   })
   if (!rows.length) return <p className="muted w-empty">No categories yet</p>
   return (
-    <div className="progress-list">
-      {rows.map(({ c, top, done, sections }) => (
-        <div key={c.id} className="cat-progress">
-          <div className="cat-progress-head">
-            <Link to={`/tasks/c/${c.id}`} className="cat-name truncate">
-              {c.name}
-            </Link>
-            <span className="muted small num">
-              {done}/{top.length}
-            </span>
+    <div className="progress-list progress-compact">
+      {rows.map(({ c, top, done, sections }) => {
+        const foldable = sections.some((s) => s.title !== null)
+        const isOpen = foldable && unfolded.includes(c.id)
+        return (
+          <div key={c.id} className={cx('cat-progress', isOpen && 'is-open')}>
+            <div className="cat-progress-head">
+              {foldable ? (
+                <button type="button" className="cat-fold" onClick={() => toggle(c.id)} aria-expanded={isOpen} aria-label={`${isOpen ? 'Hide' : 'Show'} the sections of ${c.name}`} title={isOpen ? 'Hide sections' : 'Show sections'}>
+                  <ChevronRight size={13} />
+                </button>
+              ) : (
+                <span className="cat-fold-space" />
+              )}
+              <Link to={`/tasks/c/${c.id}`} className="cat-name truncate">
+                {c.name}
+              </Link>
+              <span className="muted small num">
+                {done}/{top.length}
+              </span>
+            </div>
+            <StackBar counts={byStatus(top)} />
+            {isOpen && (
+              <ul className="section-progress">
+                {sections.map((s) => (
+                  <li key={s.key}>
+                    <span className="truncate">{s.title ?? 'No section'}</span>
+                    <span className="mini-bar">
+                      <span style={{ width: `${s.total ? (s.done / s.total) * 100 : 0}%` }} />
+                    </span>
+                    <span className="muted small num">
+                      {s.done}/{s.total}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
-          <StackBar counts={byStatus(top)} />
-          {sections.some((s) => s.title !== null) && (
-            <ul className="section-progress">
-              {sections.map((s) => (
-                <li key={s.key}>
-                  <span className="truncate">{s.title ?? 'No section'}</span>
-                  <span className="mini-bar">
-                    <span style={{ width: `${s.total ? (s.done / s.total) * 100 : 0}%` }} />
-                  </span>
-                  <span className="muted small num">
-                    {s.done}/{s.total}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }

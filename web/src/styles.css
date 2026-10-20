@@ -1495,3 +1495,25 @@ body.dragging * { cursor: grabbing !important; user-select: none; }
   .widget-picker { grid-template-columns: 1fr; }
   .w-bars li { grid-template-columns: minmax(0, 1fr) 1fr 32px; }
 }
+
+/* Analytics: editing in place */
+.dash-board.is-editing .dash-widget { position: relative; outline: 1px dashed var(--border-strong); outline-offset: -1px; }
+.dash-board.is-editing .dash-body { pointer-events: none; user-select: none; }
+.dash-board .dash-widget.is-dragging { opacity: 0.55; outline: 2px solid var(--primary); }
+/* In a narrow widget the title keeps its own line and the controls wrap under it. */
+.dash-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: -6px -6px 12px; }
+.dash-tools .dash-title { flex: 1 1 110px; min-width: 0; margin: 0; }
+.dash-tools .grip { cursor: grab; touch-action: none; }
+body.is-dragging-widget, body.is-dragging-widget * { cursor: grabbing !important; user-select: none; }
+.dash-add { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 120px; border: 1px dashed var(--border-strong); border-radius: var(--radius); background: transparent; color: var(--text-muted); font: inherit; font-size: 13px; cursor: pointer; }
+.dash-add:hover { color: var(--text); background: var(--hover); }
+/* Progress: compact, sections fold out */
+.progress-compact { gap: 14px; }
+.progress-compact .cat-progress-head { justify-content: flex-start; gap: 6px; }
+.progress-compact .cat-progress-head .num { margin-left: auto; }
+.cat-fold { display: grid; place-items: center; width: 18px; height: 18px; padding: 0; border: none; border-radius: 4px; background: none; color: var(--text-faint); cursor: pointer; }
+.cat-fold:hover { background: var(--hover); color: var(--text); }
+.cat-fold svg { transition: transform 0.15s; }
+.cat-progress.is-open .cat-fold svg { transform: rotate(90deg); }
+.cat-fold-space { width: 18px; flex-shrink: 0; }
+.progress-compact .section-progress { padding-left: 24px; }

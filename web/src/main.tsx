@@ -32,8 +32,8 @@ createRoot(document.getElementById('root')!).render(
                 <Route index element={<Navigate to="/tasks" replace />} />
                 <Route path="/tasks" element={<TasksPage />} />
                 <Route path="/tasks/c/:categoryId" element={<TasksPage />} />
-                <Route path="/dashboard" element={<DashboardPage />} />
-                <Route path="/analytics" element={<Navigate to="/dashboard" replace />} />
+                <Route path="/analytics" element={<DashboardPage />} />
+                <Route path="/dashboard" element={<Navigate to="/analytics" replace />} />
                 <Route path="/archived" element={<ArchivedPage />} />
                 <Route path="/users" element={<UsersPage />} />
                 <Route path="/roles" element={<RolesPage />} />

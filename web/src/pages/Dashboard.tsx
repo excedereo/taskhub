@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { GripVertical, LayoutDashboard, Pencil, Plus, Settings2, X } from 'lucide-react'
 import { api } from '../api.ts'
 import { useData } from '../store.tsx'
@@ -7,7 +7,7 @@ import { ConfirmButton, Field, Modal, PageHeader } from '../components/ui.tsx'
 import { Select } from '../components/Select.tsx'
 import { AutoTextarea } from '../components/AutoTextarea.tsx'
 import { useToast } from '../components/Toast.tsx'
-import { moveItem, useDragSort } from '../components/useDragSort.ts'
+import { moveItem } from '../components/useDragSort.ts'
 import { METRICS, WIDGETS, num, str, titleOf, type DashData, type Widget, type WidgetSize, type WidgetType } from '../dashboard/model.ts'
 import { RENDERERS } from '../dashboard/widgets.tsx'
 
@@ -60,12 +60,28 @@ export function DashboardPage() {
     }
   }
 
+  const widgets = draft ?? layout?.widgets
   return (
-    <div className="page dashboard">
+    <div className={cx('page dashboard', draft && 'is-editing')}>
       <PageHeader
-        title="Dashboard"
+        title="Analytics"
+        description={draft ? 'Drag widgets by the handle, pick a size, open a widget’s settings. Everyone sees the result once you save.' : undefined}
         actions={
-          draft ? null : (
+          draft ? (
+            <>
+              {layout?.custom && (
+                <ConfirmButton className="btn-sm" confirmText="Back to default?" onConfirm={() => save(null)}>
+                  Reset to default
+                </ConfirmButton>
+              )}
+              <button className="btn btn-ghost" onClick={() => setDraft(null)}>
+                Cancel
+              </button>
+              <button className="btn btn-primary" onClick={() => save(draft)}>
+                Save layout
+              </button>
+            </>
+          ) : (
             <>
               <div className="segmented" role="tablist" aria-label="Period">
                 {PERIODS.map((p) => (
@@ -84,30 +100,13 @@ export function DashboardPage() {
         }
       />
 
-      {draft ? (
-        <LayoutEditor draft={draft} setDraft={setDraft} custom={Boolean(layout?.custom)} onSave={() => save(draft)} onReset={() => save(null)} onCancel={() => setDraft(null)} />
-      ) : !layout || !data ? (
+      {!widgets || !data ? (
         <div className="skeleton-list">
           <div className="skeleton-row" style={{ height: 96 }} />
           <div className="skeleton-row" style={{ height: 260 }} />
         </div>
       ) : (
-        <div className="dash-board">
-          {layout.widgets.map((w) => {
-            const Render = RENDERERS[w.type]
-            return (
-              <section key={w.id} className={cx('card dash-widget', `size-${w.size}`, `type-${w.type}`)}>
-                <h2 className="dash-title">{titleOf(w)}</h2>
-                <Render widget={w} data={data} days={days} />
-              </section>
-            )
-          })}
-          {layout.widgets.length === 0 && (
-            <div className="card dash-widget size-full">
-              <p className="muted">The dashboard is empty.{can('manage_dashboard') ? ' Use Edit layout to add widgets.' : ''}</p>
-            </div>
-          )}
-        </div>
+        <Board widgets={widgets} data={data} days={days} onChange={draft ? setDraft : undefined} empty={can('manage_dashboard') ? ' Use Edit layout to add widgets.' : ''} />
       )}
     </div>
   )
@@ -116,60 +115,136 @@ export function DashboardPage() {
 let seq = 0
 const newId = (type: WidgetType) => `${type}-${Date.now().toString(36)}-${++seq}`
 
-/** Arrange the dashboard as a list: drag by the handle, pick a size, open a widget's settings. */
-function LayoutEditor({ draft, setDraft, custom, onSave, onReset, onCancel }: { draft: Widget[]; setDraft: (w: Widget[]) => void; custom: boolean; onSave: () => void; onReset: () => void; onCancel: () => void }) {
-  const sort = useDragSort(draft.length, (from, to) => setDraft(moveItem(draft, from, to)))
+/**
+ * The dashboard grid. With onChange it becomes its own editor: every widget gets a small toolbar and
+ * can be dragged around the grid by its handle, with the others making room as it passes over them.
+ */
+function Board({ widgets, data, days, onChange, empty }: { widgets: Widget[]; data: DashData; days: number; onChange?: (w: Widget[]) => void; empty: string }) {
+  const editing = Boolean(onChange)
   const [adding, setAdding] = useState(false)
-  const [editing, setEditing] = useState<string | null>(null)
-  const update = (id: string, patch: Partial<Widget>) => setDraft(draft.map((w) => (w.id === id ? { ...w, ...patch } : w)))
+  const [settings, setSettings] = useState<string | null>(null)
+  const [dragId, setDragId] = useState<string | null>(null)
+  const refs = useRef(new Map<string, HTMLElement>())
+  const latest = useRef({ widgets, onChange })
+  latest.current = { widgets, onChange }
+  const lastMove = useRef(0)
+
+  const update = (id: string, patch: Partial<Widget>) => onChange?.(widgets.map((w) => (w.id === id ? { ...w, ...patch } : w)))
+  const move = (from: number, to: number) => onChange?.(moveItem(widgets, from, Math.max(0, Math.min(widgets.length - 1, to))))
+
+  useEffect(() => {
+    if (!dragId) return
+    const scroller = document.querySelector<HTMLElement>('.main')
+    document.body.classList.add('is-dragging-widget')
+    const onMove = (e: PointerEvent) => {
+      // Near the top or bottom edge the page scrolls, so a widget can travel the whole dashboard.
+      if (scroller) {
+        if (e.clientY < 90) scroller.scrollBy(0, -14)
+        else if (e.clientY > window.innerHeight - 90) scroller.scrollBy(0, 14)
+      }
+      if (Date.now() - lastMove.current < 140) return
+      const { widgets: list, onChange: change } = latest.current
+      const from = list.findIndex((w) => w.id === dragId)
+      const self = refs.current.get(dragId)?.getBoundingClientRect()
+      for (const [id, el] of refs.current) {
+        if (id === dragId) continue
+        const r = el.getBoundingClientRect()
+        if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) continue
+        const to = list.findIndex((w) => w.id === id)
+        // Only swap once the pointer is past the middle of the other widget, so neighbours do not flicker.
+        const sameRow = self && Math.abs(self.top - r.top) < 8
+        const ahead = sameRow ? e.clientX < r.left + r.width / 2 : e.clientY < r.top + r.height / 2
+        if ((to < from && ahead) || (to > from && !ahead)) {
+          change?.(moveItem(list, from, to))
+          lastMove.current = Date.now()
+        }
+        break
+      }
+    }
+    const onUp = () => setDragId(null)
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    window.addEventListener('pointercancel', onUp)
+    return () => {
+      document.body.classList.remove('is-dragging-widget')
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('pointercancel', onUp)
+    }
+  }, [dragId])
+
+  const editingWidget = settings ? widgets.find((w) => w.id === settings) : undefined
 
   return (
-    <div className="dash-editor">
-      <div className="dash-editor-bar">
-        <span className="muted small">Drag widgets by the handle to reorder them. Changes are seen by everyone once saved.</span>
-        <span className="grow" />
-        {custom && (
-          <ConfirmButton className="btn-sm" confirmText="Back to default?" onConfirm={onReset}>
-            Reset to default
-          </ConfirmButton>
-        )}
-        <button className="btn btn-sm" onClick={() => setAdding(true)}>
-          <Plus size={14} /> Add widget
-        </button>
-        <button className="btn btn-sm btn-ghost" onClick={onCancel}>
-          Cancel
-        </button>
-        <button className="btn btn-sm btn-primary" onClick={onSave}>
-          Save layout
-        </button>
-      </div>
-
-      <ul className="dash-editor-list">
-        {draft.map((w, i) => (
-          <li key={w.id} ref={sort.ref(i)} style={sort.style(i)} className={cx('dash-editor-item', sort.dragging === i && 'is-dragging')}>
-            <button type="button" className="grip" aria-label={`Drag ${titleOf(w)}`} title="Drag to reorder" {...sort.handle(i)}>
-              <GripVertical size={14} />
-            </button>
-            <span className="stack min-w-0 grow">
-              <span className="truncate">{titleOf(w)}</span>
-              <span className="muted small truncate">{WIDGETS[w.type].title}</span>
-            </span>
-            <div className="segmented segmented-sm" aria-label="Size">
-              {SIZES.map(([size, label]) => (
-                <button key={size} type="button" className={cx(w.size === size && 'active')} onClick={() => update(w.id, { size })} title={size === 'full' ? 'Full width' : `${label} of the width`}>
-                  {label}
+    <div className={cx('dash-board', editing && 'is-editing')}>
+      {widgets.map((w, i) => {
+        const Render = RENDERERS[w.type]
+        return (
+          <section
+            key={w.id}
+            ref={(el) => {
+              if (el) refs.current.set(w.id, el)
+              else refs.current.delete(w.id)
+            }}
+            className={cx('card dash-widget', `size-${w.size}`, `type-${w.type}`, dragId === w.id && 'is-dragging')}
+          >
+            {editing ? (
+              <div className="dash-tools">
+                <button
+                  type="button"
+                  className="grip"
+                  aria-label={`Move ${titleOf(w)}`}
+                  title="Drag to move (or focus and use the arrow keys)"
+                  onPointerDown={(e) => {
+                    e.preventDefault()
+                    setDragId(w.id)
+                  }}
+                  onKeyDown={(e) => {
+                    const step = e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : 0
+                    if (!step) return
+                    e.preventDefault()
+                    move(i, i + step)
+                  }}
+                >
+                  <GripVertical size={14} />
                 </button>
-              ))}
+                <span className="dash-title truncate">{titleOf(w)}</span>
+                <div className="segmented segmented-sm" aria-label="Size">
+                  {SIZES.map(([size, label]) => (
+                    <button key={size} type="button" className={cx(w.size === size && 'active')} onClick={() => update(w.id, { size })} title={size === 'full' ? 'Full width' : `${label} of the width`}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <button type="button" className="icon-btn icon-btn-sm" onClick={() => setSettings(w.id)} aria-label={`Settings of ${titleOf(w)}`} title="Settings">
+                  <Settings2 size={14} />
+                </button>
+                <button type="button" className="icon-btn icon-btn-sm" onClick={() => onChange?.(widgets.filter((x) => x.id !== w.id))} aria-label={`Remove ${titleOf(w)}`} title="Remove">
+                  <X size={14} />
+                </button>
+              </div>
+            ) : (
+              <h2 className="dash-title">{titleOf(w)}</h2>
+            )}
+            <div className="dash-body">
+              <Render widget={w} data={data} days={days} />
             </div>
-            <button type="button" className="icon-btn icon-btn-sm" onClick={() => setEditing(w.id)} aria-label={`Settings of ${titleOf(w)}`} title="Settings">
-              <Settings2 size={14} />
-            </button>
-            <button type="button" className="icon-btn icon-btn-sm" onClick={() => setDraft(draft.filter((x) => x.id !== w.id))} aria-label={`Remove ${titleOf(w)}`} title="Remove">
-              <X size={14} />
-            </button>
-          </li>
-        ))}
-      </ul>
+          </section>
+        )
+      })}
+
+      {editing ? (
+        <button type="button" className="dash-add size-quarter" onClick={() => setAdding(true)}>
+          <Plus size={18} />
+          Add widget
+        </button>
+      ) : (
+        widgets.length === 0 && (
+          <div className="card dash-widget size-full">
+            <p className="muted">The dashboard is empty.{empty}</p>
+          </div>
+        )
+      )}
 
       {adding && (
         <Modal title="Add a widget" onClose={() => setAdding(false)} width={560}>
@@ -180,9 +255,9 @@ function LayoutEditor({ draft, setDraft, custom, onSave, onReset, onCancel }: { 
                   type="button"
                   onClick={() => {
                     const w: Widget = { id: newId(type), type, size: WIDGETS[type].size, config: { ...WIDGETS[type].config } }
-                    setDraft([...draft, w])
+                    onChange?.([...widgets, w])
                     setAdding(false)
-                    setEditing(w.id)
+                    setSettings(w.id)
                   }}
                 >
                   <LayoutDashboard size={16} className="muted" />
@@ -197,9 +272,7 @@ function LayoutEditor({ draft, setDraft, custom, onSave, onReset, onCancel }: { 
         </Modal>
       )}
 
-      {editing && draft.find((w) => w.id === editing) && (
-        <WidgetSettings widget={draft.find((w) => w.id === editing)!} onChange={(config) => update(editing, { config })} onClose={() => setEditing(null)} />
-      )}
+      {editingWidget && <WidgetSettings widget={editingWidget} onChange={(config) => update(editingWidget.id, { config })} onClose={() => setSettings(null)} />}
     </div>
   )
 }

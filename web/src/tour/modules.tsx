@@ -68,7 +68,7 @@ export const TOUR_MODULES: TourModule[] = [
   {
     key: 'navigation',
     title: 'Getting around',
-    summary: 'The menu: your tasks, all tasks, categories, the dashboard, the archive and your profile.',
+    summary: 'The menu: your tasks, all tasks, categories, analytics, the archive and your profile.',
     when: () => true,
     steps: [
       {
@@ -91,7 +91,7 @@ export const TOUR_MODULES: TourModule[] = [
       {
         target: 'nav-analytics',
         sidebar: true,
-        title: 'Dashboard',
+        title: 'Analytics',
         body: 'The workspace at a glance: counts, deadlines and countdowns, progress of each category, what got stuck and how busy everyone is. It is shared by the whole team and built from widgets by people who may arrange it.',
       },
       {
