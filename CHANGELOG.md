@@ -1,0 +1,39 @@
+# Changelog
+
+New features raise the middle number (0.2.0 → 0.3.0), fixes and small changes raise the last one (0.3.0 → 0.3.1).
+
+## 0.2.0 — 2026-10-20
+
+Everything added since the first release.
+
+**Tasks and categories**
+- Category folders in the sidebar: group categories, fold them, see the unfinished count of a folded folder
+- Choose where finished tasks go inside a category: at the bottom (labelled with their section), at the bottom of each section, or in place
+- Finished rows fade as a whole
+- Labels and due dates
+- Editable statuses with types (not started, in progress, done) and editable priorities, including Acknowledged and Light by default
+- Take only assigns the task; the status stays as it was
+- Archived categories can be found and restored on the Archived page
+- Delete a category together with its tasks, behind its own permission and a typed confirmation
+
+**People and permissions**
+- Roles in a hierarchy, ordered by dragging
+- Users can be sorted by any column, with the date they joined
+- New permissions: Manage themes, Manage integrations, Use the API and AI agents, Delete categories with tasks
+
+**Look and feel**
+- Personal settings: theme, density, animations, how status and priority icons are drawn, your own colors and icons
+- Custom themes, built-in themes (Midnight, Forest, Paper, Frost) and workspace themes with optional CSS; `?safe` turns a workspace theme off
+- A guided tour built from separate guides, each shown only to people whose role can use it
+- The Taskhub logo, and the version with links to the source in the profile
+
+**Integrations**
+- Discord webhooks that post chosen events, combined into one message when several happen at once
+- Personal API tokens and an MCP server, so AI agents can work in Taskhub with their owner's permissions; their changes are marked “via” the token name (administrators can turn that off)
+
+**Other**
+- Taskhub is now licensed under the AGPL-3.0; earlier versions were MIT
+
+## 0.1.0 — 2026-10-16
+
+The first release: tasks, categories with sections and subtasks, roles with category limits, Discord sign-in, images, archive, analytics and the audit log.
